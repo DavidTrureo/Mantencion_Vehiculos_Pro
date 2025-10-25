@@ -12,6 +12,7 @@ import com.mantenimientovehiculospro.data.local.UsuarioPreferences
 import com.mantenimientovehiculospro.data.model.Mantenimiento
 import com.mantenimientovehiculospro.data.model.Vehiculo
 import com.mantenimientovehiculospro.data.network.RetrofitProvider
+import com.mantenimientovehiculospro.util.formatearFechaVisual
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -20,7 +21,9 @@ fun DetalleVehiculoScreen(
     vehiculoId: Long,
     onBack: () -> Unit,
     onEditar: (Long) -> Unit,
-    onAgregarMantenimiento: (Long) -> Unit
+    onAgregarMantenimiento: (Long) -> Unit,
+    onEditarMantenimiento: (Long) -> Unit,
+    onEliminarMantenimiento: suspend (Long) -> Boolean
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -87,29 +90,20 @@ fun DetalleVehiculoScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    Button(
-                        onClick = { onEditar(vehiculoId) },
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                    ) {
-                        Text("Editar", color = MaterialTheme.colorScheme.onPrimary)
+                    Button(onClick = { onEditar(vehiculoId) }) {
+                        Text("Editar")
                     }
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    Button(
-                        onClick = { onAgregarMantenimiento(vehiculoId) },
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
-                    ) {
-                        Text("Agregar mantenimiento", color = MaterialTheme.colorScheme.onSecondary)
+                    Button(onClick = { onAgregarMantenimiento(vehiculoId) }) {
+                        Text("Agregar mantenimiento")
                     }
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    Button(
-                        onClick = { mostrarDialogoConfirmacion = true },
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                    ) {
-                        Text("Eliminar vehículo", color = MaterialTheme.colorScheme.onError)
+                    Button(onClick = { mostrarDialogoConfirmacion = true }) {
+                        Text("Eliminar vehículo", color = MaterialTheme.colorScheme.error)
                     }
 
                     if (mostrarDialogoConfirmacion) {
@@ -166,9 +160,34 @@ fun DetalleVehiculoScreen(
                                 ) {
                                     Column(modifier = Modifier.padding(16.dp)) {
                                         Text("Tipo: ${mantenimiento.tipo}", style = MaterialTheme.typography.titleMedium)
-                                        Text("Fecha: ${mantenimiento.fecha}", style = MaterialTheme.typography.bodyMedium)
+                                        Text("Fecha: ${mantenimiento.fecha?.formatearFechaVisual() ?: "Sin fecha"}", style = MaterialTheme.typography.bodyMedium)
                                         Text("Kilometraje: ${mantenimiento.kilometraje} km", style = MaterialTheme.typography.bodyMedium)
                                         Text("Descripción: ${mantenimiento.descripcion}", style = MaterialTheme.typography.bodySmall)
+
+                                        Spacer(modifier = Modifier.height(8.dp))
+
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.End
+                                        ) {
+                                            TextButton(onClick = {
+                                                mantenimiento.id?.let { onEditarMantenimiento(it) }
+                                            }) {
+                                                Text("Editar")
+                                            }
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            TextButton(onClick = {
+                                                mantenimiento.id?.let { id ->
+                                                    scope.launch {
+                                                        val eliminado = onEliminarMantenimiento(id)
+                                                        if (eliminado) refrescar = true
+                                                        else error = "No se pudo eliminar el mantenimiento"
+                                                    }
+                                                }
+                                            }) {
+                                                Text("Eliminar", color = MaterialTheme.colorScheme.error)
+                                            }
+                                        }
                                     }
                                 }
                             }

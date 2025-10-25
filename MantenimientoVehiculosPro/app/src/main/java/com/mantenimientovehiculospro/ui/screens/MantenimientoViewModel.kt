@@ -9,19 +9,30 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
+data class MantenimientoUiState(
+    val isLoading: Boolean = false,
+    val lista: List<Mantenimiento> = emptyList(),
+    val error: String? = null
+)
+
 class MantenimientoViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val _mantenimientos = MutableStateFlow<List<Mantenimiento>>(emptyList())
-    val mantenimientos: StateFlow<List<Mantenimiento>> = _mantenimientos
+    private val _uiState = MutableStateFlow(MantenimientoUiState())
+    val uiState: StateFlow<MantenimientoUiState> = _uiState
 
     fun cargarMantenimientos(vehiculoId: Long) {
         viewModelScope.launch {
+            _uiState.value = MantenimientoUiState(isLoading = true)
             try {
                 val lista = RetrofitProvider.instance.obtenerMantenimientos(vehiculoId)
-                _mantenimientos.value = lista
+                _uiState.value = MantenimientoUiState(lista = lista)
             } catch (e: Exception) {
-                _mantenimientos.value = emptyList()
+                _uiState.value = MantenimientoUiState(error = "Error al cargar mantenimientos")
             }
         }
+    }
+
+    fun limpiarError() {
+        _uiState.value = _uiState.value.copy(error = null)
     }
 }

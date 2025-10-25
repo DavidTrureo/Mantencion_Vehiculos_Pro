@@ -1,14 +1,20 @@
 package com.mantenimientovehiculospro.ui.components
 
 import android.app.DatePickerDialog
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
+import com.mantenimientovehiculospro.util.formatearFechaVisual
 import java.util.*
 
 @Composable
@@ -19,7 +25,6 @@ fun FechaSelector(
     val context = LocalContext.current
     val calendario = Calendar.getInstance()
 
-    // Creamos el DatePickerDialog
     val datePickerDialog = DatePickerDialog(
         context,
         { _, year, month, dayOfMonth ->
@@ -31,20 +36,27 @@ fun FechaSelector(
         calendario.get(Calendar.DAY_OF_MONTH)
     )
 
-    // Usamos Box para envolver el campo y capturar los clics correctamente
-    Box(
+    val fechaFormateada = fechaSeleccionada.formatearFechaVisual()
+
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { datePickerDialog.show() } // Muestra el calendario
+            .clickable { datePickerDialog.show() }
+            .background(Color.White)
+            .border(1.dp, Color.Gray, shape = MaterialTheme.shapes.small)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        OutlinedTextField(
-            value = fechaSeleccionada,
-            onValueChange = {},
-            label = { Text("Fecha") },
-            placeholder = { Text("Selecciona una fecha") },
-            readOnly = true,
-            enabled = false, // hace que no se vea editable ni tenga cursor
-            modifier = Modifier.fillMaxWidth()
+        Text(
+            text = if (fechaFormateada.isNotBlank()) fechaFormateada else "Selecciona una fecha",
+            color = if (fechaFormateada.isNotBlank()) Color.Black else Color.Gray,
+            style = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier.weight(1f)
+        )
+        Icon(
+            imageVector = Icons.Default.DateRange,
+            contentDescription = "Seleccionar fecha",
+            tint = Color.Gray
         )
     }
 }

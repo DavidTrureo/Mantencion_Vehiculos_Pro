@@ -45,4 +45,38 @@ public class MantenimientoController {
         Mantenimiento guardado = mantenimientoRepository.save(entidad);
         return ResponseEntity.ok(MantenimientoMapper.toDTO(guardado));
     }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<MantenimientoDTO> obtenerPorId(@PathVariable Long id) {
+        Mantenimiento mantenimiento = mantenimientoRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Mantenimiento no encontrado"));
+        return ResponseEntity.ok(MantenimientoMapper.toDTO(mantenimiento));
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<Void> actualizar(
+            @PathVariable Long id,
+            @Valid @RequestBody MantenimientoDTO dto
+    ) {
+        Mantenimiento existente = mantenimientoRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Mantenimiento no encontrado"));
+
+        Vehiculo vehiculo = vehiculoRepository.findById(dto.getVehiculoId())
+                .orElseThrow(() -> new RuntimeException("Vehículo no encontrado"));
+
+        Mantenimiento actualizado = MantenimientoMapper.toEntity(dto, vehiculo);
+        actualizado.setId(id); // Asegura que se actualice el existente
+        mantenimientoRepository.save(actualizado);
+
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> eliminar(@PathVariable Long id) {
+        if (!mantenimientoRepository.existsById(id)) {
+            return ResponseEntity.notFound().build();
+        }
+        mantenimientoRepository.deleteById(id);
+        return ResponseEntity.noContent().build();
+    }
 }

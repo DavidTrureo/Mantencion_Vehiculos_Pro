@@ -8,6 +8,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.mantenimientovehiculospro.data.network.RetrofitProvider
 import com.mantenimientovehiculospro.ui.screens.*
 import com.mantenimientovehiculospro.ui.theme.MantenimientoVehiculosProTheme
 
@@ -75,7 +76,16 @@ class MainActivity : ComponentActivity() {
                             vehiculoId = vehiculoId,
                             onBack = { navController.popBackStack() },
                             onEditar = { id -> navController.navigate("editarVehiculo/$id") },
-                            onAgregarMantenimiento = { id -> navController.navigate("crearMantenimiento/$id") }
+                            onAgregarMantenimiento = { id -> navController.navigate("crearMantenimiento/$id") },
+                            onEditarMantenimiento = { id -> navController.navigate("editarMantenimiento/$id") },
+                            onEliminarMantenimiento = { id ->
+                                try {
+                                    val response = RetrofitProvider.instance.eliminarMantenimiento(id)
+                                    response.isSuccessful
+                                } catch (e: Exception) {
+                                    false
+                                }
+                            }
                         )
                     }
 
@@ -100,6 +110,22 @@ class MainActivity : ComponentActivity() {
                             onMantenimientoGuardado = {
                                 navController.navigate("vehiculo_detail/$vehiculoId") {
                                     popUpTo("crearMantenimiento/$vehiculoId") { inclusive = true }
+                                }
+                            },
+                            onCancelar = { navController.popBackStack() }
+                        )
+                    }
+
+                    composable(
+                        route = "editarMantenimiento/{mantenimientoId}",
+                        arguments = listOf(navArgument("mantenimientoId") { type = NavType.LongType })
+                    ) { backStackEntry ->
+                        val mantenimientoId = backStackEntry.arguments?.getLong("mantenimientoId") ?: return@composable
+                        EditarMantenimientoScreen(
+                            mantenimientoId = mantenimientoId,
+                            onMantenimientoActualizado = { vehiculoId ->
+                                navController.navigate("vehiculo_detail/$vehiculoId") {
+                                    popUpTo("editarMantenimiento/$mantenimientoId") { inclusive = true }
                                 }
                             },
                             onCancelar = { navController.popBackStack() }

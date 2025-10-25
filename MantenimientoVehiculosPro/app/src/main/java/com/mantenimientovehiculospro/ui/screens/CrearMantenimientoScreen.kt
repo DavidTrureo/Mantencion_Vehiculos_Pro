@@ -77,6 +77,7 @@ fun CrearMantenimientoScreen(
                 .padding(paddingValues)
                 .padding(16.dp)
         ) {
+            // Tipo de mantenimiento
             ExposedDropdownMenuBox(
                 expanded = expanded,
                 onExpandedChange = { expanded = !expanded }
@@ -107,8 +108,9 @@ fun CrearMantenimientoScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
+            // Historial
             when {
                 ultimaMantencion != null -> {
                     Text(
@@ -125,8 +127,9 @@ fun CrearMantenimientoScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
+            // Descripción
             OutlinedTextField(
                 value = descripcion,
                 onValueChange = { descripcion = it },
@@ -135,11 +138,19 @@ fun CrearMantenimientoScreen(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            FechaSelector(
-                fechaSeleccionada = fechaISO,
-                onFechaSeleccionada = { fechaISO = it }
-            )
+            Spacer(modifier = Modifier.height(16.dp))
 
+            // Fecha
+            Box(modifier = Modifier.fillMaxWidth()) {
+                FechaSelector(
+                    fechaSeleccionada = fechaISO,
+                    onFechaSeleccionada = { fechaISO = it }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Kilometraje
             OutlinedTextField(
                 value = kilometrajeTexto,
                 onValueChange = { kilometrajeTexto = it },
@@ -150,6 +161,7 @@ fun CrearMantenimientoScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
+            // Botón Guardar
             Button(onClick = {
                 val kilometraje = kilometrajeTexto.toIntOrNull()
                 if (tipo.isBlank() || descripcion.isBlank() || fechaISO.isBlank() || kilometraje == null) {
