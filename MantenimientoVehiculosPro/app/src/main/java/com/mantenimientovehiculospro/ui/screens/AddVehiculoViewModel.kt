@@ -10,6 +10,7 @@ import com.mantenimientovehiculospro.data.network.RetrofitProvider
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import retrofit2.HttpException
 
 data class AddVehiculoUiState(
     val marca: String = "",
@@ -66,14 +67,13 @@ class AddVehiculoViewModel(application: Application) : AndroidViewModel(applicat
                 marca = marca,
                 modelo = modelo,
                 anio = anio,
-                kilometraje = kilometraje
+                kilometraje = kilometraje,
+                propietarioId = usuarioId // ✅ requerido por el backend
             )
 
             try {
-                // Crear vehículo
                 val nuevoVehiculo = RetrofitProvider.instance.crearVehiculo(usuarioId, vehiculo)
 
-                // Precargar mantenciones
                 val mantenciones = obtenerMantencionesPredefinidas().map {
                     it.copy(vehiculoId = nuevoVehiculo.id ?: 0)
                 }
@@ -82,14 +82,18 @@ class AddVehiculoViewModel(application: Application) : AndroidViewModel(applicat
                     RetrofitProvider.instance.crearMantenimiento(nuevoVehiculo.id ?: 0, it)
                 }
 
-                // Actualizar estado
                 _uiState.value = estado.copy(
                     vehiculoGuardado = true,
                     mensaje = null
                 )
+            } catch (e: HttpException) {
+                val errorBody = e.response()?.errorBody()?.string()
+                _uiState.value = estado.copy(
+                    mensaje = "Error ${e.code()}: ${errorBody ?: e.message()}"
+                )
             } catch (e: Exception) {
                 _uiState.value = estado.copy(
-                    mensaje = "Error al guardar vehículo: ${e.message}"
+                    mensaje = "Error inesperado: ${e.message}"
                 )
             }
         }

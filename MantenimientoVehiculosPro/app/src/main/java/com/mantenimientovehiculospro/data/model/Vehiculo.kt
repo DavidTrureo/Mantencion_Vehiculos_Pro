@@ -6,6 +6,5 @@ data class Vehiculo(
     val modelo: String,
     val anio: Int,
     val kilometraje: Int,
-    val propietarioId: Long? = null,           // ✅ nuevo campo directo
-    val propietario: Usuario? = null
+    val propietarioId: Long? = null // ✅ requerido por el backend
 )

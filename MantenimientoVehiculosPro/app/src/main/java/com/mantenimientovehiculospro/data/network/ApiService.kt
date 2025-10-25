@@ -8,30 +8,27 @@ import retrofit2.Response
 
 interface ApiService {
 
-    // Vehículos
-    @GET("api/vehiculos/usuario/{usuarioId}")
+    @GET("vehiculos/usuario/{usuarioId}")
     suspend fun obtenerVehiculos(@Path("usuarioId") usuarioId: Long): List<Vehiculo>
 
-    @POST("api/vehiculos/usuario/{usuarioId}")
+    @POST("vehiculos/usuario/{usuarioId}")
     suspend fun crearVehiculo(@Path("usuarioId") usuarioId: Long, @Body vehiculo: Vehiculo): Vehiculo
 
-    @DELETE("api/vehiculos/{vehiculoId}")
+    @DELETE("vehiculos/{vehiculoId}")
     suspend fun eliminarVehiculo(@Path("vehiculoId") vehiculoId: Long): Response<Unit>
 
-    @PUT("api/vehiculos/{vehiculoId}")
+    @PUT("vehiculos/{vehiculoId}")
     suspend fun actualizarVehiculo(@Path("vehiculoId") vehiculoId: Long, @Body vehiculo: Vehiculo): Vehiculo
 
-    // Mantenimientos
-    @GET("api/mantenimientos/vehiculo/{vehiculoId}")
+    @GET("mantenimientos/vehiculo/{vehiculoId}")
     suspend fun obtenerMantenimientos(@Path("vehiculoId") vehiculoId: Long): List<Mantenimiento>
 
-    @POST("api/mantenimientos/vehiculo/{vehiculoId}")
+    @POST("mantenimientos/vehiculo/{vehiculoId}")
     suspend fun crearMantenimiento(@Path("vehiculoId") vehiculoId: Long, @Body mantenimiento: Mantenimiento): Mantenimiento
 
-    // Autenticación
-    @POST("api/usuarios/login")
+    @POST("usuarios/login")
     suspend fun login(@Body usuario: Usuario): Usuario
 
-    @POST("api/usuarios/registrar")
+    @POST("usuarios/registrar")
     suspend fun registrar(@Body usuario: Usuario): Usuario
 }

@@ -1,8 +1,6 @@
 package com.mantenimiento.vehiculospro_api.model;
 
-import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
-import java.util.List;
 
 @Entity
 @Table(name = "usuarios")
@@ -12,12 +10,11 @@ public class Usuario {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(nullable = false, unique = true)
     private String email;
-    private String password;
 
-    @OneToMany(mappedBy = "propietario", cascade = CascadeType.ALL, orphanRemoval = true)
-    @JsonManagedReference
-    private List<Vehiculo> vehiculos;
+    @Column(nullable = false)
+    private String password;
 
     // Getters y setters
     public Long getId() { return id; }
@@ -28,7 +25,4 @@ public class Usuario {
 
     public String getPassword() { return password; }
     public void setPassword(String password) { this.password = password; }
-
-    public List<Vehiculo> getVehiculos() { return vehiculos; }
-    public void setVehiculos(List<Vehiculo> vehiculos) { this.vehiculos = vehiculos; }
 }

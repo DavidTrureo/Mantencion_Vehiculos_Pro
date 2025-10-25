@@ -15,6 +15,7 @@ public class MantenimientoMapper {
     public static Mantenimiento toEntity(MantenimientoDTO dto, Vehiculo vehiculo) {
         Mantenimiento m = new Mantenimiento();
         m.setId(dto.getId());
+        m.setTipo(dto.getTipo()); // ✅ nuevo campo agregado
         m.setDescripcion(dto.getDescripcion());
         m.setKilometraje(dto.getKilometraje());
         m.setEstado(dto.getEstado());
@@ -36,6 +37,7 @@ public class MantenimientoMapper {
     public static MantenimientoDTO toDTO(Mantenimiento m) {
         MantenimientoDTO dto = new MantenimientoDTO();
         dto.setId(m.getId());
+        dto.setTipo(m.getTipo()); // ✅ nuevo campo agregado
         dto.setDescripcion(m.getDescripcion());
         dto.setKilometraje(m.getKilometraje());
         dto.setEstado(m.getEstado());

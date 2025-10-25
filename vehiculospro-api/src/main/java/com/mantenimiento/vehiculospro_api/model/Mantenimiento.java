@@ -18,6 +18,9 @@ public class Mantenimiento {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(nullable = false)
+    private String tipo;
+
     private String descripcion;
     private LocalDate fecha;
     private int kilometraje;
@@ -34,6 +37,9 @@ public class Mantenimiento {
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
+
+    public String getTipo() { return tipo; }
+    public void setTipo(String tipo) { this.tipo = tipo; }
 
     public String getDescripcion() { return descripcion; }
     public void setDescripcion(String descripcion) { this.descripcion = descripcion; }

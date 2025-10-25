@@ -15,7 +15,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @RestController
-@RequestMapping("/api/vehiculos")
+@RequestMapping("vehiculos")
 public class VehiculoController {
 
     @Autowired
