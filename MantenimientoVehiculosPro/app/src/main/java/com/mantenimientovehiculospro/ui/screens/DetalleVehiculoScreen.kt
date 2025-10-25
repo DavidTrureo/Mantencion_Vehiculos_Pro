@@ -145,13 +145,33 @@ fun DetalleVehiculoScreen(
                     }
 
                     Spacer(modifier = Modifier.height(24.dp))
-                    Text("Mantenimientos:", style = MaterialTheme.typography.titleMedium)
+                    Text("Mantenimientos registrados:", style = MaterialTheme.typography.titleMedium)
 
                     if (mantenimientos.isEmpty()) {
-                        Text("No hay mantenimientos registrados.")
+                        Text(
+                            text = "No hay mantenimientos registrados.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.outline
+                        )
                     } else {
-                        mantenimientos.forEach {
-                            Text("• ${it.tipo} - ${it.fecha ?: "Sin fecha"} - ${it.descripcion}")
+                        Column {
+                            mantenimientos.forEach { mantenimiento ->
+                                Card(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 4.dp),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                                    )
+                                ) {
+                                    Column(modifier = Modifier.padding(16.dp)) {
+                                        Text("Tipo: ${mantenimiento.tipo}", style = MaterialTheme.typography.titleMedium)
+                                        Text("Fecha: ${mantenimiento.fecha}", style = MaterialTheme.typography.bodyMedium)
+                                        Text("Kilometraje: ${mantenimiento.kilometraje} km", style = MaterialTheme.typography.bodyMedium)
+                                        Text("Descripción: ${mantenimiento.descripcion}", style = MaterialTheme.typography.bodySmall)
+                                    }
+                                }
+                            }
                         }
                     }
                 }

@@ -4,7 +4,6 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.mantenimientovehiculospro.data.local.UsuarioPreferences
-import com.mantenimientovehiculospro.data.local.predefinidas.obtenerMantencionesPredefinidas
 import com.mantenimientovehiculospro.data.model.Vehiculo
 import com.mantenimientovehiculospro.data.network.RetrofitProvider
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -68,19 +67,11 @@ class AddVehiculoViewModel(application: Application) : AndroidViewModel(applicat
                 modelo = modelo,
                 anio = anio,
                 kilometraje = kilometraje,
-                propietarioId = usuarioId // ✅ requerido por el backend
+                propietarioId = usuarioId
             )
 
             try {
-                val nuevoVehiculo = RetrofitProvider.instance.crearVehiculo(usuarioId, vehiculo)
-
-                val mantenciones = obtenerMantencionesPredefinidas().map {
-                    it.copy(vehiculoId = nuevoVehiculo.id ?: 0)
-                }
-
-                mantenciones.forEach {
-                    RetrofitProvider.instance.crearMantenimiento(nuevoVehiculo.id ?: 0, it)
-                }
+                RetrofitProvider.instance.crearVehiculo(usuarioId, vehiculo)
 
                 _uiState.value = estado.copy(
                     vehiculoGuardado = true,

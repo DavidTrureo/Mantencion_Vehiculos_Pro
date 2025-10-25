@@ -1,21 +1,17 @@
 package com.mantenimientovehiculospro.ui.screens
 
-import android.app.DatePickerDialog
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.mantenimientovehiculospro.data.model.EstadoMantenimiento
 import com.mantenimientovehiculospro.data.model.Mantenimiento
 import com.mantenimientovehiculospro.data.network.RetrofitProvider
+import com.mantenimientovehiculospro.ui.components.FechaSelector
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
-import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -25,8 +21,6 @@ fun CrearMantenimientoScreen(
     onCancelar: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
-    val context = LocalContext.current
-    val calendar = Calendar.getInstance()
 
     val tiposMantencion = listOf(
         "Cambio de aceite",
@@ -41,7 +35,6 @@ fun CrearMantenimientoScreen(
 
     var tipo by remember { mutableStateOf("") }
     var descripcion by remember { mutableStateOf("") }
-    var fechaVisual by remember { mutableStateOf("") }
     var fechaISO by remember { mutableStateOf("") }
     var kilometrajeTexto by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
@@ -50,20 +43,6 @@ fun CrearMantenimientoScreen(
     var historial by remember { mutableStateOf<List<Mantenimiento>>(emptyList()) }
     var ultimaMantencion by remember { mutableStateOf<Mantenimiento?>(null) }
     var tipoSeleccionadoSinHistorial by remember { mutableStateOf(false) }
-
-    val datePickerDialog = DatePickerDialog(
-        context,
-        { _, year, month, dayOfMonth ->
-            calendar.set(year, month, dayOfMonth)
-            val formatoVisual = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
-            val formatoISO = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-            fechaVisual = formatoVisual.format(calendar.time)
-            fechaISO = formatoISO.format(calendar.time)
-        },
-        calendar.get(Calendar.YEAR),
-        calendar.get(Calendar.MONTH),
-        calendar.get(Calendar.DAY_OF_MONTH)
-    )
 
     LaunchedEffect(vehiculoId) {
         scope.launch {
@@ -156,15 +135,9 @@ fun CrearMantenimientoScreen(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            OutlinedTextField(
-                value = fechaVisual,
-                onValueChange = { /* no editable manualmente */ },
-                readOnly = true,
-                label = { Text("Fecha") },
-                placeholder = { Text("Selecciona una fecha") },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { datePickerDialog.show() }
+            FechaSelector(
+                fechaSeleccionada = fechaISO,
+                onFechaSeleccionada = { fechaISO = it }
             )
 
             OutlinedTextField(
