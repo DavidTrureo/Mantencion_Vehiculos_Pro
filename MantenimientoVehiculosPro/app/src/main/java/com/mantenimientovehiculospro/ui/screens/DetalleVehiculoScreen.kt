@@ -1,6 +1,9 @@
 package com.mantenimientovehiculospro.ui.screens
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.ui.Alignment
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
@@ -33,7 +36,6 @@ fun DetalleVehiculoScreen(
     var error by remember { mutableStateOf<String?>(null) }
     var cargando by remember { mutableStateOf(true) }
     var mostrarDialogoConfirmacion by remember { mutableStateOf(false) }
-
     var refrescar by remember { mutableStateOf(false) }
 
     LaunchedEffect(vehiculoId, refrescar) {
@@ -74,15 +76,29 @@ fun DetalleVehiculoScreen(
             )
         }
     ) { paddingValues ->
-        Column(
-            modifier = Modifier
+        if (cargando) {
+            Box(modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
+            }
+        } else if (error != null) {
+            Column(modifier = Modifier
+                .fillMaxSize()
                 .padding(paddingValues)
-                .padding(16.dp)
-        ) {
-            when {
-                cargando -> CircularProgressIndicator()
-                error != null -> Text(error!!, color = MaterialTheme.colorScheme.error)
-                vehiculo != null -> {
+                .padding(16.dp)) {
+                Text(error!!, color = MaterialTheme.colorScheme.error)
+            }
+        } else if (vehiculo != null) {
+            LazyColumn(
+                modifier = Modifier
+                    .padding(paddingValues)
+                    .padding(16.dp)
+                    .fillMaxSize()
+            ) {
+                item {
                     Text("Marca: ${vehiculo!!.marca}", style = MaterialTheme.typography.titleLarge)
                     Text("Modelo: ${vehiculo!!.modelo}", style = MaterialTheme.typography.bodyLarge)
                     Text("Año: ${vehiculo!!.anio}")
@@ -106,94 +122,94 @@ fun DetalleVehiculoScreen(
                         Text("Eliminar vehículo", color = MaterialTheme.colorScheme.error)
                     }
 
-                    if (mostrarDialogoConfirmacion) {
-                        AlertDialog(
-                            onDismissRequest = { mostrarDialogoConfirmacion = false },
-                            title = { Text("¿Eliminar vehículo?") },
-                            text = { Text("Esta acción no se puede deshacer.") },
-                            confirmButton = {
-                                TextButton(onClick = {
-                                    mostrarDialogoConfirmacion = false
-                                    scope.launch {
-                                        try {
-                                            val response = RetrofitProvider.instance.eliminarVehiculo(vehiculoId)
-                                            if (response.isSuccessful) {
-                                                onBack()
-                                            } else {
-                                                error = "Error al eliminar vehículo: ${response.code()}"
-                                            }
-                                        } catch (e: Exception) {
-                                            error = "Error al eliminar vehículo: ${e.message}"
-                                        }
-                                    }
-                                }) {
-                                    Text("Eliminar", color = MaterialTheme.colorScheme.error)
-                                }
-                            },
-                            dismissButton = {
-                                TextButton(onClick = { mostrarDialogoConfirmacion = false }) {
-                                    Text("Cancelar")
-                                }
-                            }
-                        )
-                    }
-
                     Spacer(modifier = Modifier.height(24.dp))
                     Text("Mantenimientos registrados:", style = MaterialTheme.typography.titleMedium)
+                }
 
-                    if (mantenimientos.isEmpty()) {
+                if (mantenimientos.isEmpty()) {
+                    item {
                         Text(
                             text = "No hay mantenimientos registrados.",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.outline
                         )
-                    } else {
-                        Column {
-                            mantenimientos.forEach { mantenimiento ->
-                                Card(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 4.dp),
-                                    colors = CardDefaults.cardColors(
-                                        containerColor = MaterialTheme.colorScheme.surfaceVariant
-                                    )
+                    }
+                } else {
+                    items(mantenimientos) { mantenimiento ->
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant
+                            )
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text("Tipo: ${mantenimiento.tipo}", style = MaterialTheme.typography.titleMedium)
+                                Text("Fecha: ${mantenimiento.fecha?.formatearFechaVisual() ?: "Sin fecha"}")
+                                Text("Kilometraje: ${mantenimiento.kilometraje} km")
+                                Text("Descripción: ${mantenimiento.descripcion}")
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.End
                                 ) {
-                                    Column(modifier = Modifier.padding(16.dp)) {
-                                        Text("Tipo: ${mantenimiento.tipo}", style = MaterialTheme.typography.titleMedium)
-                                        Text("Fecha: ${mantenimiento.fecha?.formatearFechaVisual() ?: "Sin fecha"}", style = MaterialTheme.typography.bodyMedium)
-                                        Text("Kilometraje: ${mantenimiento.kilometraje} km", style = MaterialTheme.typography.bodyMedium)
-                                        Text("Descripción: ${mantenimiento.descripcion}", style = MaterialTheme.typography.bodySmall)
-
-                                        Spacer(modifier = Modifier.height(8.dp))
-
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.End
-                                        ) {
-                                            TextButton(onClick = {
-                                                mantenimiento.id?.let { onEditarMantenimiento(it) }
-                                            }) {
-                                                Text("Editar")
-                                            }
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            TextButton(onClick = {
-                                                mantenimiento.id?.let { id ->
-                                                    scope.launch {
-                                                        val eliminado = onEliminarMantenimiento(id)
-                                                        if (eliminado) refrescar = true
-                                                        else error = "No se pudo eliminar el mantenimiento"
-                                                    }
-                                                }
-                                            }) {
-                                                Text("Eliminar", color = MaterialTheme.colorScheme.error)
+                                    TextButton(onClick = {
+                                        mantenimiento.id?.let { onEditarMantenimiento(it) }
+                                    }) {
+                                        Text("Editar")
+                                    }
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    TextButton(onClick = {
+                                        mantenimiento.id?.let { id ->
+                                            scope.launch {
+                                                val eliminado = onEliminarMantenimiento(id)
+                                                if (eliminado) refrescar = true
+                                                else error = "No se pudo eliminar el mantenimiento"
                                             }
                                         }
+                                    }) {
+                                        Text("Eliminar", color = MaterialTheme.colorScheme.error)
                                     }
                                 }
                             }
                         }
                     }
                 }
+            }
+
+            if (mostrarDialogoConfirmacion) {
+                AlertDialog(
+                    onDismissRequest = { mostrarDialogoConfirmacion = false },
+                    title = { Text("¿Eliminar vehículo?") },
+                    text = { Text("Esta acción no se puede deshacer.") },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            mostrarDialogoConfirmacion = false
+                            scope.launch {
+                                try {
+                                    val response = RetrofitProvider.instance.eliminarVehiculo(vehiculoId)
+                                    if (response.isSuccessful) {
+                                        onBack()
+                                    } else {
+                                        error = "Error al eliminar vehículo: ${response.code()}"
+                                    }
+                                } catch (e: Exception) {
+                                    error = "Error al eliminar vehículo: ${e.message}"
+                                }
+                            }
+                        }) {
+                            Text("Eliminar", color = MaterialTheme.colorScheme.error)
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { mostrarDialogoConfirmacion = false }) {
+                            Text("Cancelar")
+                        }
+                    }
+                )
             }
         }
     }
