@@ -7,9 +7,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.mantenimientovehiculospro.data.model.EstadoMantenimiento
 import com.mantenimientovehiculospro.data.model.Mantenimiento
-import com.mantenimientovehiculospro.ui.screens.formatearFecha
 import com.mantenimientovehiculospro.util.calcularEstadoMantencion
 import com.mantenimientovehiculospro.util.calcularProgresoMantencion
+import com.mantenimientovehiculospro.util.formatearFechaVisual // ✅ Import correcto
 
 @Composable
 fun MantencionCard(
@@ -42,7 +42,7 @@ fun MantencionCard(
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text("Tipo: ${mantenimiento.tipo}", style = MaterialTheme.typography.titleSmall)
-            Text("Fecha: ${formatearFecha(mantenimiento.fecha)}")
+            Text("Fecha: ${mantenimiento.fecha?.formatearFechaVisual() ?: "Sin fecha"}")
             Text("Km realizado: ${mantenimiento.kilometraje} km")
             Text("Estado: $estado")
 

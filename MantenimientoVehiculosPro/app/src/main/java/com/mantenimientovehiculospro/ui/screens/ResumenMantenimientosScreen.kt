@@ -12,22 +12,8 @@ import com.mantenimientovehiculospro.data.local.UsuarioPreferences
 import com.mantenimientovehiculospro.data.model.Mantenimiento
 import com.mantenimientovehiculospro.data.model.Vehiculo
 import com.mantenimientovehiculospro.data.network.RetrofitProvider
+import com.mantenimientovehiculospro.util.formatearFechaVisual
 import kotlinx.coroutines.launch
-
-// ✅ Función para formatear fechas en DD/MM/AAAA
-fun formatearFecha(fecha: String?): String {
-    if (fecha.isNullOrBlank()) return "Sin fecha"
-    return try {
-        val partes = fecha.split("-", "/", ".")
-        when {
-            partes.size == 3 && partes[0].length == 4 -> "${partes[2]}/${partes[1]}/${partes[0]}" // ISO → DD/MM/AAAA
-            partes.size == 3 && partes[2].length == 4 -> fecha // Ya está en DD/MM/AAAA
-            else -> fecha
-        }
-    } catch (e: Exception) {
-        fecha
-    }
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -79,8 +65,14 @@ fun ResumenMantenimientosScreen(
                 cargando -> CircularProgressIndicator()
                 error != null -> Text(error!!, color = MaterialTheme.colorScheme.error)
                 vehiculo != null -> {
-                    Text("Vehículo: ${vehiculo!!.marca} ${vehiculo!!.modelo}", style = MaterialTheme.typography.titleLarge)
-                    Text("Año: ${vehiculo!!.anio} | Km: ${vehiculo!!.kilometraje}", style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        "Vehículo: ${vehiculo!!.marca} ${vehiculo!!.modelo}",
+                        style = MaterialTheme.typography.titleLarge
+                    )
+                    Text(
+                        "Año: ${vehiculo!!.anio} | Km: ${vehiculo!!.kilometraje}",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
 
                     Spacer(modifier = Modifier.height(24.dp))
                     Text("Historial de mantenimientos:", style = MaterialTheme.typography.titleMedium)
@@ -92,11 +84,14 @@ fun ResumenMantenimientosScreen(
                             Card(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(vertical = 8.dp)
+                                    .padding(vertical = 8.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                                )
                             ) {
                                 Column(modifier = Modifier.padding(16.dp)) {
                                     Text("• ${m.tipo}", style = MaterialTheme.typography.titleSmall)
-                                    Text("Fecha: ${formatearFecha(m.fecha)}")
+                                    Text("Fecha: ${m.fecha?.formatearFechaVisual() ?: "Sin fecha"}")
                                     Text("Descripción: ${m.descripcion}")
                                 }
                             }

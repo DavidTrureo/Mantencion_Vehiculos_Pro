@@ -3,11 +3,11 @@ package com.mantenimientovehiculospro.ui.screens
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.ui.Alignment
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -15,6 +15,8 @@ import com.mantenimientovehiculospro.data.local.UsuarioPreferences
 import com.mantenimientovehiculospro.data.model.Mantenimiento
 import com.mantenimientovehiculospro.data.model.Vehiculo
 import com.mantenimientovehiculospro.data.network.RetrofitProvider
+import com.mantenimientovehiculospro.ui.components.BotonAccion
+import com.mantenimientovehiculospro.ui.theme.*
 import com.mantenimientovehiculospro.util.formatearFechaVisual
 import kotlinx.coroutines.launch
 
@@ -77,18 +79,21 @@ fun DetalleVehiculoScreen(
         }
     ) { paddingValues ->
         if (cargando) {
-            Box(modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues),
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues),
                 contentAlignment = Alignment.Center
             ) {
                 CircularProgressIndicator()
             }
         } else if (error != null) {
-            Column(modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(16.dp)) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .padding(16.dp)
+            ) {
                 Text(error!!, color = MaterialTheme.colorScheme.error)
             }
         } else if (vehiculo != null) {
@@ -106,21 +111,30 @@ fun DetalleVehiculoScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    Button(onClick = { onEditar(vehiculoId) }) {
-                        Text("Editar")
-                    }
+                    BotonAccion(
+                        texto = "Editar Vehículo",
+                        colorFondo = WarningYellow,
+                        onClick = { onEditar(vehiculoId) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    Button(onClick = { onAgregarMantenimiento(vehiculoId) }) {
-                        Text("Agregar mantenimiento")
-                    }
+                    BotonAccion(
+                        texto = "Agregar Mantenimiento",
+                        colorFondo = InfoBlue,
+                        onClick = { onAgregarMantenimiento(vehiculoId) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    Button(onClick = { mostrarDialogoConfirmacion = true }) {
-                        Text("Eliminar vehículo", color = MaterialTheme.colorScheme.error)
-                    }
+                    BotonAccion(
+                        texto = "Eliminar Vehículo",
+                        colorFondo = ErrorRed,
+                        onClick = { mostrarDialogoConfirmacion = true },
+                        modifier = Modifier.fillMaxWidth()
+                    )
 
                     Spacer(modifier = Modifier.height(24.dp))
                     Text("Mantenimientos registrados:", style = MaterialTheme.typography.titleMedium)

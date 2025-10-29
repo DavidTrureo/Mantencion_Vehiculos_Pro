@@ -1,12 +1,15 @@
 package com.mantenimientovehiculospro.data.network
 
+import android.content.Context
+import com.mantenimientovehiculospro.MyApp
+import com.mantenimientovehiculospro.data.local.UsuarioPreferences
+import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
 object RetrofitProvider {
-    private const val BASE_URL = "http://192.168.100.105:8080/" // Ajusta según tu IP o dominio backend
 
     private val logger = HttpLoggingInterceptor().apply {
         level = HttpLoggingInterceptor.Level.BODY
@@ -16,9 +19,17 @@ object RetrofitProvider {
         .addInterceptor(logger)
         .build()
 
+    private fun obtenerBaseUrl(context: Context): String {
+        val ip = runBlocking {
+            UsuarioPreferences.obtenerIpBackend(context)
+        } ?: "10.0.2.2" // IP por defecto para emulador
+        return "http://$ip:8080/"
+    }
+
     val instance: ApiService by lazy {
+        val context = MyApp.instance.applicationContext
         Retrofit.Builder()
-            .baseUrl(BASE_URL)
+            .baseUrl(obtenerBaseUrl(context))
             .client(client)
             .addConverterFactory(GsonConverterFactory.create())
             .build()

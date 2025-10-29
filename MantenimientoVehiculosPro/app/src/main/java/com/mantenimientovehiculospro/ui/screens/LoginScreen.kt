@@ -12,6 +12,9 @@ import androidx.compose.ui.unit.dp
 import com.mantenimientovehiculospro.data.local.UsuarioPreferences
 import com.mantenimientovehiculospro.data.model.Usuario
 import com.mantenimientovehiculospro.data.network.RetrofitProvider
+import com.mantenimientovehiculospro.ui.components.BotonAccion
+import com.mantenimientovehiculospro.ui.theme.InfoBlue
+import com.mantenimientovehiculospro.ui.theme.NeutralGray
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -43,7 +46,8 @@ fun LoginScreen(
         Column(
             modifier = Modifier
                 .padding(paddingValues)
-                .padding(16.dp)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             OutlinedTextField(
                 value = email,
@@ -62,9 +66,9 @@ fun LoginScreen(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Button(
+            BotonAccion(
+                texto = "Ingresar",
+                colorFondo = InfoBlue,
                 onClick = {
                     scope.launch {
                         if (email.isBlank() || password.isBlank()) {
@@ -85,9 +89,14 @@ fun LoginScreen(
                     }
                 },
                 modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Ingresar")
-            }
+            )
+
+            BotonAccion(
+                texto = "Volver",
+                colorFondo = NeutralGray,
+                onClick = onBack,
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     }
 }

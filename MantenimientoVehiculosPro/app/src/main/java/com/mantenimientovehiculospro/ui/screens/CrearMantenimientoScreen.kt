@@ -11,6 +11,7 @@ import com.mantenimientovehiculospro.data.model.EstadoMantenimiento
 import com.mantenimientovehiculospro.data.model.Mantenimiento
 import com.mantenimientovehiculospro.data.network.RetrofitProvider
 import com.mantenimientovehiculospro.ui.components.FechaSelector
+import com.mantenimientovehiculospro.util.formatearFechaVisual
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -113,8 +114,9 @@ fun CrearMantenimientoScreen(
             // Historial
             when {
                 ultimaMantencion != null -> {
+                    val fechaFormateada = ultimaMantencion?.fecha?.formatearFechaVisual() ?: "Sin fecha"
                     Text(
-                        text = "Última mantención de \"$tipo\": ${ultimaMantencion?.fecha ?: "Sin fecha"} a los ${ultimaMantencion?.kilometraje} km",
+                        text = "Última mantención de \"$tipo\": $fechaFormateada a los ${ultimaMantencion?.kilometraje} km",
                         style = MaterialTheme.typography.bodySmall
                     )
                 }

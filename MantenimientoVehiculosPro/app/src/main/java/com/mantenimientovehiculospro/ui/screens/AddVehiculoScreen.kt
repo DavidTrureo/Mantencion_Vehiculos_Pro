@@ -6,6 +6,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.mantenimientovehiculospro.ui.components.BotonAccion
+import com.mantenimientovehiculospro.ui.theme.SuccessGreen
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -38,6 +40,7 @@ fun AddVehiculoScreen(
                 placeholder = { Text("Ej: Toyota, Ford, Chevrolet...") },
                 modifier = Modifier.fillMaxWidth()
             )
+
             OutlinedTextField(
                 value = state.modelo,
                 onValueChange = { viewModel.onModeloChange(it) },
@@ -45,6 +48,7 @@ fun AddVehiculoScreen(
                 placeholder = { Text("Ej: Corolla, Ranger, Spark...") },
                 modifier = Modifier.fillMaxWidth()
             )
+
             OutlinedTextField(
                 value = state.anio,
                 onValueChange = { viewModel.onAnioChange(it) },
@@ -52,6 +56,7 @@ fun AddVehiculoScreen(
                 placeholder = { Text("Ej: 2015") },
                 modifier = Modifier.fillMaxWidth()
             )
+
             OutlinedTextField(
                 value = state.kilometraje,
                 onValueChange = { viewModel.onKilometrajeChange(it) },
@@ -62,9 +67,12 @@ fun AddVehiculoScreen(
 
             Spacer(modifier = Modifier.weight(1f))
 
-            Button(onClick = { viewModel.guardarVehiculo() }, modifier = Modifier.fillMaxWidth()) {
-                Text("GUARDAR VEHÍCULO")
-            }
+            BotonAccion(
+                texto = "GUARDAR VEHÍCULO",
+                colorFondo = SuccessGreen,
+                onClick = { viewModel.guardarVehiculo() },
+                modifier = Modifier.fillMaxWidth()
+            )
 
             state.mensaje?.let {
                 Text(text = it, color = MaterialTheme.colorScheme.error)
