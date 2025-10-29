@@ -1,5 +1,6 @@
 package com.mantenimientovehiculospro.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -17,8 +18,18 @@ import com.mantenimientovehiculospro.data.model.Vehiculo
 import com.mantenimientovehiculospro.data.network.RetrofitProvider
 import com.mantenimientovehiculospro.ui.components.BotonAccion
 import com.mantenimientovehiculospro.ui.theme.*
-import com.mantenimientovehiculospro.util.formatearFechaVisual
 import kotlinx.coroutines.launch
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+
+fun String.formatearFechaVisual(): String {
+    return try {
+        val original = LocalDate.parse(this, DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+        original.format(DateTimeFormatter.ofPattern("dd-MM-yyyy"))
+    } catch (e: Exception) {
+        this
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -39,6 +50,7 @@ fun DetalleVehiculoScreen(
     var cargando by remember { mutableStateOf(true) }
     var mostrarDialogoConfirmacion by remember { mutableStateOf(false) }
     var refrescar by remember { mutableStateOf(false) }
+    var tipoExpandido by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(vehiculoId, refrescar) {
         scope.launch {
@@ -149,20 +161,42 @@ fun DetalleVehiculoScreen(
                         )
                     }
                 } else {
-                    items(mantenimientos) { mantenimiento ->
+                    val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
+                    val agrupadasPorTipo = mantenimientos
+                        .groupBy { it.tipo.trim().lowercase() }
+                        .mapValues { (_, lista) ->
+                            lista.sortedByDescending {
+                                try {
+                                    LocalDate.parse(it.fecha ?: "", formatter)
+                                } catch (e: Exception) {
+                                    LocalDate.MIN
+                                }
+                            }
+                        }
+
+                    items(agrupadasPorTipo.entries.toList()) { entry ->
+                        val tipo = entry.key
+                        val listaOrdenada = entry.value
+                        val ultima = listaOrdenada.firstOrNull()
+                        val restantes = listaOrdenada.drop(1)
+                        val cantidad = listaOrdenada.size
+                        val tipoFormateado = tipo.replaceFirstChar { it.uppercase() }
+
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 4.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceVariant
-                            )
+                                .padding(vertical = 4.dp)
+                                .clickable { tipoExpandido = if (tipoExpandido == tipo) null else tipo },
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                         ) {
                             Column(modifier = Modifier.padding(16.dp)) {
-                                Text("Tipo: ${mantenimiento.tipo}", style = MaterialTheme.typography.titleMedium)
-                                Text("Fecha: ${mantenimiento.fecha?.formatearFechaVisual() ?: "Sin fecha"}")
-                                Text("Kilometraje: ${mantenimiento.kilometraje} km")
-                                Text("Descripción: ${mantenimiento.descripcion}")
+                                Text(
+                                    text = "Tipo: $tipoFormateado${if (cantidad > 1) " ($cantidad)" else ""}",
+                                    style = MaterialTheme.typography.titleMedium
+                                )
+                                Text("Fecha: ${ultima?.fecha?.formatearFechaVisual() ?: "Sin fecha"}")
+                                Text("Kilometraje: ${ultima?.kilometraje} km")
+                                Text("Descripción: ${ultima?.descripcion ?: "-"}")
 
                                 Spacer(modifier = Modifier.height(8.dp))
 
@@ -171,13 +205,13 @@ fun DetalleVehiculoScreen(
                                     horizontalArrangement = Arrangement.End
                                 ) {
                                     TextButton(onClick = {
-                                        mantenimiento.id?.let { onEditarMantenimiento(it) }
+                                        ultima?.id?.let { onEditarMantenimiento(it) }
                                     }) {
                                         Text("Editar")
                                     }
                                     Spacer(modifier = Modifier.width(8.dp))
                                     TextButton(onClick = {
-                                        mantenimiento.id?.let { id ->
+                                        ultima?.id?.let { id ->
                                             scope.launch {
                                                 val eliminado = onEliminarMantenimiento(id)
                                                 if (eliminado) refrescar = true
@@ -186,6 +220,40 @@ fun DetalleVehiculoScreen(
                                         }
                                     }) {
                                         Text("Eliminar", color = MaterialTheme.colorScheme.error)
+                                    }
+                                }
+
+                                if (tipoExpandido == tipo && restantes.isNotEmpty()) {
+                                    Divider(modifier = Modifier.padding(vertical = 8.dp))
+                                    restantes.forEach { mantenimiento ->
+                                        Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                                            Text("Fecha: ${mantenimiento.fecha?.formatearFechaVisual() ?: "Sin fecha"}")
+                                            Text("Kilometraje: ${mantenimiento.kilometraje} km")
+                                            Text("Descripción: ${mantenimiento.descripcion ?: "-"}")
+
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.End
+                                            ) {
+                                                TextButton(onClick = {
+                                                    mantenimiento.id?.let { onEditarMantenimiento(it) }
+                                                }) {
+                                                    Text("Editar")
+                                                }
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                TextButton(onClick = {
+                                                    mantenimiento.id?.let { id ->
+                                                        scope.launch {
+                                                            val eliminado = onEliminarMantenimiento(id)
+                                                            if (eliminado) refrescar = true
+                                                            else error = "No se pudo eliminar el mantenimiento"
+                                                        }
+                                                    }
+                                                }) {
+                                                    Text("Eliminar", color = MaterialTheme.colorScheme.error)
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }
