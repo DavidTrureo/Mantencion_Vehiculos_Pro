@@ -13,6 +13,8 @@ import com.mantenimientovehiculospro.data.network.RetrofitProvider
 import com.mantenimientovehiculospro.ui.components.FechaSelector
 import com.mantenimientovehiculospro.util.formatearFechaVisual
 import kotlinx.coroutines.launch
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -112,21 +114,19 @@ fun CrearMantenimientoScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             // Historial
-            when {
-                ultimaMantencion != null -> {
-                    val fechaFormateada = ultimaMantencion?.fecha?.formatearFechaVisual() ?: "Sin fecha"
-                    Text(
-                        text = "Última mantención de \"$tipo\": $fechaFormateada a los ${ultimaMantencion?.kilometraje} km",
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-                tipoSeleccionadoSinHistorial -> {
-                    Text(
-                        text = "No hay registros previos de este mantenimiento.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.outline
-                    )
-                }
+            val mantenimientoPrevio = ultimaMantencion
+            if (mantenimientoPrevio != null) {
+                val fechaFormateada = mantenimientoPrevio.fecha?.formatearFechaVisual() ?: "Sin fecha"
+                Text(
+                    text = "Última mantención de \"$tipo\": $fechaFormateada a los ${mantenimientoPrevio.kilometraje} km",
+                    style = MaterialTheme.typography.bodySmall
+                )
+            } else if (tipoSeleccionadoSinHistorial) {
+                Text(
+                    text = "No hay registros previos de este mantenimiento.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.outline
+                )
             }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -168,6 +168,23 @@ fun CrearMantenimientoScreen(
                 val kilometraje = kilometrajeTexto.toIntOrNull()
                 if (tipo.isBlank() || descripcion.isBlank() || fechaISO.isBlank() || kilometraje == null) {
                     error = "Completa todos los campos correctamente."
+                    return@Button
+                }
+
+                val fechaSeleccionada = try {
+                    LocalDate.parse(fechaISO, DateTimeFormatter.ISO_DATE)
+                } catch (e: Exception) {
+                    null
+                }
+
+                if (fechaSeleccionada == null || fechaSeleccionada.isAfter(LocalDate.now())) {
+                    error = "La fecha debe ser actual o pasada. No se permiten fechas futuras."
+                    return@Button
+                }
+
+                val mantenimientoPrevio = ultimaMantencion
+                if (mantenimientoPrevio != null && kilometraje < mantenimientoPrevio.kilometraje) {
+                    error = "El kilometraje debe ser mayor o igual al de la última mantención (${mantenimientoPrevio.kilometraje} km)."
                     return@Button
                 }
 
