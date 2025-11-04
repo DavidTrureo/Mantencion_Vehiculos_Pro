@@ -2,21 +2,35 @@ package com.mantenimientovehiculospro.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Colores base para tema claro y oscuro
-val Purple80 = Color(0xFFD0BCFF)
-val PurpleGrey80 = Color(0xFFCCC2DC)
-val Pink80 = Color(0xFFEFB8C8)
+// === Light Theme Colors ===
+val PrimaryLight = Color(0xFF1976D2)
+val SecondaryLight = Color(0xFF0288D1)
+val TertiaryLight = Color(0xFF4CAF50)
+val BackgroundLight = Color(0xFFFFFFFF)
+val SurfaceLight = Color(0xFFF5F5F5)
+val OnPrimaryLight = Color(0xFFFFFFFF)
+val OnSecondaryLight = Color(0xFFFFFFFF)
+val OnBackgroundLight = Color(0xFF000000)
+val OnSurfaceLight = Color(0xFF000000)
+val ErrorLight = Color(0xFFD32F2F)
+val OnErrorLight = Color(0xFFFFFFFF)
 
-val Purple40 = Color(0xFF6650a4)
-val PurpleGrey40 = Color(0xFF625b71)
-val Pink40 = Color(0xFF7D5260)
+// === Dark Theme Colors ===
+val PrimaryDark = Color(0xFF90CAF9)
+val SecondaryDark = Color(0xFF81D4FA)
+val TertiaryDark = Color(0xFFA5D6A7)
+val BackgroundDark = Color(0xFF121212)
+val SurfaceDark = Color(0xFF1E1E1E)
+val OnPrimaryDark = Color(0xFF000000)
+val OnSecondaryDark = Color(0xFF000000)
+val OnBackgroundDark = Color(0xFFFFFFFF)
+val OnSurfaceDark = Color(0xFFFFFFFF)
+val ErrorDark = Color(0xFFEF5350)
+val OnErrorDark = Color(0xFF000000)
 
-val DarkRed = Color(0xFFB00020) // Rojo oscuro Material Design
-
-// Colores personalizados para acciones
-val PrimaryColor = Color(0xFF1976D2)
+// === Semantic Colors (usable across themes) ===
+val ErrorRed = Color(0xFFD32F2F)       // Alias for ErrorLight
 val SuccessGreen = Color(0xFF4CAF50)
-val ErrorRed = Color(0xFFD32F2F)
 val WarningYellow = Color(0xFFFFA000)
 val InfoBlue = Color(0xFF0288D1)
 val NeutralGray = Color(0xFF9E9E9E)
