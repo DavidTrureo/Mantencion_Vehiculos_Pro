@@ -6,13 +6,18 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
+// Definición de la tipografía global de la aplicación.
+// Aquí configuro los estilos de texto que se usarán en toda la app.
+// Material 3 ya trae estilos por defecto, pero los personalizo para dar coherencia visual.
 val Typography = Typography(
+
+    // === Estilos de títulos grandes (pantallas principales) ===
     displayLarge = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Bold,
-        fontSize = 36.sp,
-        lineHeight = 44.sp,
-        letterSpacing = 0.sp
+        fontFamily = FontFamily.Default,   // Fuente por defecto del sistema
+        fontWeight = FontWeight.Bold,      // Negrita
+        fontSize = 36.sp,                  // Tamaño grande
+        lineHeight = 44.sp,                // Altura de línea
+        letterSpacing = 0.sp               // Espaciado entre letras
     ),
     displayMedium = TextStyle(
         fontFamily = FontFamily.Default,
@@ -21,6 +26,8 @@ val Typography = Typography(
         lineHeight = 40.sp,
         letterSpacing = 0.sp
     ),
+
+    // === Encabezados (subtítulos destacados) ===
     headlineLarge = TextStyle(
         fontFamily = FontFamily.Default,
         fontWeight = FontWeight.SemiBold,
@@ -35,6 +42,8 @@ val Typography = Typography(
         lineHeight = 32.sp,
         letterSpacing = 0.sp
     ),
+
+    // === Títulos de secciones o tarjetas ===
     titleLarge = TextStyle(
         fontFamily = FontFamily.Default,
         fontWeight = FontWeight.Medium,
@@ -49,6 +58,8 @@ val Typography = Typography(
         lineHeight = 24.sp,
         letterSpacing = 0.15.sp
     ),
+
+    // === Texto de cuerpo (contenido principal) ===
     bodyLarge = TextStyle(
         fontFamily = FontFamily.Default,
         fontWeight = FontWeight.Normal,
@@ -63,6 +74,8 @@ val Typography = Typography(
         lineHeight = 20.sp,
         letterSpacing = 0.25.sp
     ),
+
+    // === Etiquetas (botones, chips, pequeños textos de apoyo) ===
     labelLarge = TextStyle(
         fontFamily = FontFamily.Default,
         fontWeight = FontWeight.Medium,
