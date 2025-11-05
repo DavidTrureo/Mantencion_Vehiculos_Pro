@@ -12,7 +12,6 @@ import com.mantenimientovehiculospro.data.model.Mantenimiento
 import com.mantenimientovehiculospro.data.network.RetrofitProvider
 import com.mantenimientovehiculospro.ui.components.FechaSelector
 import kotlinx.coroutines.launch
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditarMantenimientoScreen(
@@ -23,14 +22,17 @@ fun EditarMantenimientoScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
+    // Estado que guarda el mantenimiento cargado desde el backend
     var mantenimiento by remember { mutableStateOf<Mantenimiento?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
 
+    // Estados que representan los campos editables del formulario
     var tipo by remember { mutableStateOf("") }
     var descripcion by remember { mutableStateOf("") }
     var fechaISO by remember { mutableStateOf<String?>(null) }
     var kilometrajeTexto by remember { mutableStateOf("") }
 
+    // Lista de tipos de mantención disponibles
     val tiposMantencion = listOf(
         "Cambio de aceite",
         "Revisión de frenos",
@@ -44,11 +46,13 @@ fun EditarMantenimientoScreen(
 
     var expanded by remember { mutableStateOf(false) }
 
+    // Al entrar en la pantalla, cargo el mantenimiento desde el backend
     LaunchedEffect(mantenimientoId) {
         scope.launch {
             try {
                 mantenimiento = RetrofitProvider.instance.obtenerMantenimientoPorId(mantenimientoId)
                 mantenimiento?.let {
+                    // Inicializo los campos con los valores actuales
                     tipo = it.tipo
                     descripcion = it.descripcion
                     fechaISO = it.fecha
@@ -65,6 +69,7 @@ fun EditarMantenimientoScreen(
             TopAppBar(
                 title = { Text("Editar Mantenimiento") },
                 navigationIcon = {
+                    // Botón para volver atrás
                     IconButton(onClick = onCancelar) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
                     }
@@ -77,6 +82,7 @@ fun EditarMantenimientoScreen(
                 .padding(paddingValues)
                 .padding(16.dp)
         ) {
+            // Si aún no se carga el mantenimiento, muestro loading o error
             if (mantenimiento == null) {
                 if (error != null) {
                     Text(error!!, color = MaterialTheme.colorScheme.error)
@@ -86,7 +92,7 @@ fun EditarMantenimientoScreen(
                 return@Column
             }
 
-            // Tipo
+            // Selector de tipo de mantenimiento
             ExposedDropdownMenuBox(
                 expanded = expanded,
                 onExpandedChange = { expanded = !expanded }
@@ -119,7 +125,7 @@ fun EditarMantenimientoScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Descripción
+            // Campo de descripción
             OutlinedTextField(
                 value = descripcion,
                 onValueChange = { descripcion = it },
@@ -130,7 +136,7 @@ fun EditarMantenimientoScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Fecha
+            // Selector de fecha
             Box(modifier = Modifier.fillMaxWidth()) {
                 FechaSelector(
                     fechaSeleccionada = fechaISO ?: "",
@@ -140,7 +146,7 @@ fun EditarMantenimientoScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Kilometraje
+            // Campo de kilometraje
             OutlinedTextField(
                 value = kilometrajeTexto,
                 onValueChange = { kilometrajeTexto = it },
@@ -151,6 +157,7 @@ fun EditarMantenimientoScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
+            // Botón para guardar cambios
             Button(onClick = {
                 val kilometraje = kilometrajeTexto.toIntOrNull()
                 if (tipo.isBlank() || descripcion.isBlank() || fechaISO.isNullOrBlank() || kilometraje == null) {
@@ -158,6 +165,7 @@ fun EditarMantenimientoScreen(
                     return@Button
                 }
 
+                // Creo una copia del mantenimiento con los nuevos valores
                 val actualizado = mantenimiento!!.copy(
                     tipo = tipo,
                     descripcion = descripcion,
@@ -165,6 +173,7 @@ fun EditarMantenimientoScreen(
                     kilometraje = kilometraje
                 )
 
+                // Llamo al backend para actualizar
                 scope.launch {
                     try {
                         RetrofitProvider.instance.actualizarMantenimiento(mantenimientoId, actualizado)
@@ -177,6 +186,7 @@ fun EditarMantenimientoScreen(
                 Text("Guardar cambios")
             }
 
+            // Muestro errores si existen
             error?.let {
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(it, color = MaterialTheme.colorScheme.error)

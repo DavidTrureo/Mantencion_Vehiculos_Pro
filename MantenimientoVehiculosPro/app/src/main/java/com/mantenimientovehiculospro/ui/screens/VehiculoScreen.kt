@@ -18,7 +18,6 @@ import com.mantenimientovehiculospro.data.local.UsuarioPreferences
 import com.mantenimientovehiculospro.data.model.Vehiculo
 import com.mantenimientovehiculospro.data.network.RetrofitProvider
 import kotlinx.coroutines.launch
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VehiculoScreen(
@@ -27,13 +26,16 @@ fun VehiculoScreen(
     onLogout: () -> Unit,
     navController: NavController
 ) {
+    // Obtengo el contexto y preparo un scope para corrutinas
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
+    // Estados para manejar la lista de vehículos, errores y estado de carga
     var vehiculos by remember { mutableStateOf<List<Vehiculo>>(emptyList()) }
     var error by remember { mutableStateOf<String?>(null) }
     var cargando by remember { mutableStateOf(true) }
 
+    // Función que recarga los vehículos desde el backend usando Retrofit
     fun recargarVehiculos() {
         scope.launch {
             val usuarioId = UsuarioPreferences.obtenerUsuarioId(context)
@@ -55,10 +57,12 @@ fun VehiculoScreen(
         }
     }
 
+    // Al entrar en la pantalla, lanzo la carga inicial de vehículos
     LaunchedEffect(true) {
         recargarVehiculos()
     }
 
+    // Manejo de refresco cuando vuelvo desde otra pantalla
     val refrescarHandle = navController.currentBackStackEntry
         ?.savedStateHandle
         ?.getLiveData<Boolean>("refrescar")
@@ -71,14 +75,17 @@ fun VehiculoScreen(
         }
     }
 
+    // Estructura principal de la pantalla
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Mis Vehículos") },
                 actions = {
+                    // Botón para agregar un nuevo vehículo
                     IconButton(onClick = onAddVehiculoClick) {
                         Icon(Icons.Default.Add, contentDescription = "Agregar vehículo")
                     }
+                    // Botón para cerrar sesión
                     IconButton(onClick = onLogout) {
                         Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = "Cerrar sesión")
                     }
@@ -91,12 +98,14 @@ fun VehiculoScreen(
                 .padding(paddingValues)
                 .padding(16.dp)
         ) {
+            // Manejo de estados: cargando, error, lista vacía o lista con datos
             when {
                 cargando -> CircularProgressIndicator()
                 error != null -> Text(error!!, color = MaterialTheme.colorScheme.error)
                 vehiculos.isEmpty() -> Text("No tienes vehículos registrados.")
                 else -> LazyColumn {
                     items(vehiculos) { vehiculo ->
+                        // Cada vehículo se muestra en una tarjeta clickeable
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()

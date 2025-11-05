@@ -22,6 +22,7 @@ import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
+// Función de extensión para formatear fechas de "yyyy-MM-dd" a "dd-MM-yyyy"
 fun String.formatearFechaVisual(): String {
     return try {
         val original = LocalDate.parse(this, DateTimeFormatter.ofPattern("yyyy-MM-dd"))
@@ -44,6 +45,7 @@ fun DetalleVehiculoScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
+    // Estados principales de la pantalla
     var vehiculo by remember { mutableStateOf<Vehiculo?>(null) }
     var mantenimientos by remember { mutableStateOf<List<Mantenimiento>>(emptyList()) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -52,6 +54,7 @@ fun DetalleVehiculoScreen(
     var refrescar by remember { mutableStateOf(false) }
     var tipoExpandido by remember { mutableStateOf<String?>(null) }
 
+    // Efecto que carga los datos del vehículo y sus mantenimientos
     LaunchedEffect(vehiculoId, refrescar) {
         scope.launch {
             val usuarioId = UsuarioPreferences.obtenerUsuarioId(context)
@@ -90,31 +93,24 @@ fun DetalleVehiculoScreen(
             )
         }
     ) { paddingValues ->
-        if (cargando) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues),
+        when {
+            cargando -> Box(
+                modifier = Modifier.fillMaxSize().padding(paddingValues),
                 contentAlignment = Alignment.Center
             ) {
                 CircularProgressIndicator()
             }
-        } else if (error != null) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues)
-                    .padding(16.dp)
+
+            error != null -> Column(
+                modifier = Modifier.fillMaxSize().padding(paddingValues).padding(16.dp)
             ) {
                 Text(error!!, color = MaterialTheme.colorScheme.error)
             }
-        } else if (vehiculo != null) {
-            LazyColumn(
-                modifier = Modifier
-                    .padding(paddingValues)
-                    .padding(16.dp)
-                    .fillMaxSize()
+
+            vehiculo != null -> LazyColumn(
+                modifier = Modifier.padding(paddingValues).padding(16.dp).fillMaxSize()
             ) {
+                // Información del vehículo
                 item {
                     Text("Marca: ${vehiculo!!.marca}", style = MaterialTheme.typography.titleLarge)
                     Text("Modelo: ${vehiculo!!.modelo}", style = MaterialTheme.typography.bodyLarge)
@@ -123,6 +119,7 @@ fun DetalleVehiculoScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
+                    // ✅ Botones corregidos con parámetros nombrados
                     BotonAccion(
                         texto = "Editar Vehículo",
                         colorFondo = WarningYellow,
@@ -152,6 +149,7 @@ fun DetalleVehiculoScreen(
                     Text("Mantenimientos registrados:", style = MaterialTheme.typography.titleMedium)
                 }
 
+                // Lista de mantenimientos
                 if (mantenimientos.isEmpty()) {
                     item {
                         Text(
@@ -162,15 +160,11 @@ fun DetalleVehiculoScreen(
                     }
                 } else {
                     val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
-                    val agrupadasPorTipo = mantenimientos
-                        .groupBy { it.tipo.trim().lowercase() }
+                    val agrupadasPorTipo = mantenimientos.groupBy { it.tipo.trim().lowercase() }
                         .mapValues { (_, lista) ->
                             lista.sortedByDescending {
-                                try {
-                                    LocalDate.parse(it.fecha ?: "", formatter)
-                                } catch (e: Exception) {
-                                    LocalDate.MIN
-                                }
+                                try { LocalDate.parse(it.fecha ?: "", formatter) }
+                                catch (e: Exception) { LocalDate.MIN }
                             }
                         }
 
@@ -183,30 +177,22 @@ fun DetalleVehiculoScreen(
                         val tipoFormateado = tipo.replaceFirstChar { it.uppercase() }
 
                         Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp)
-                                .clickable { tipoExpandido = if (tipoExpandido == tipo) null else tipo },
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable {
+                                tipoExpandido = if (tipoExpandido == tipo) null else tipo
+                            },
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                         ) {
                             Column(modifier = Modifier.padding(16.dp)) {
-                                Text(
-                                    text = "Tipo: $tipoFormateado${if (cantidad > 1) " ($cantidad)" else ""}",
-                                    style = MaterialTheme.typography.titleMedium
-                                )
+                                Text("Tipo: $tipoFormateado${if (cantidad > 1) " ($cantidad)" else ""}",
+                                    style = MaterialTheme.typography.titleMedium)
                                 Text("Fecha: ${ultima?.fecha?.formatearFechaVisual() ?: "Sin fecha"}")
                                 Text("Kilometraje: ${ultima?.kilometraje} km")
                                 Text("Descripción: ${ultima?.descripcion ?: "-"}")
 
                                 Spacer(modifier = Modifier.height(8.dp))
 
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.End
-                                ) {
-                                    TextButton(onClick = {
-                                        ultima?.id?.let { onEditarMantenimiento(it) }
-                                    }) {
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                                    TextButton(onClick = { ultima?.id?.let { onEditarMantenimiento(it) } }) {
                                         Text("Editar")
                                     }
                                     Spacer(modifier = Modifier.width(8.dp))
@@ -231,13 +217,8 @@ fun DetalleVehiculoScreen(
                                             Text("Kilometraje: ${mantenimiento.kilometraje} km")
                                             Text("Descripción: ${mantenimiento.descripcion ?: "-"}")
 
-                                            Row(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                horizontalArrangement = Arrangement.End
-                                            ) {
-                                                TextButton(onClick = {
-                                                    mantenimiento.id?.let { onEditarMantenimiento(it) }
-                                                }) {
+                                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                                                TextButton(onClick = { mantenimiento.id?.let { onEditarMantenimiento(it) } }) {
                                                     Text("Editar")
                                                 }
                                                 Spacer(modifier = Modifier.width(8.dp))
@@ -261,38 +242,41 @@ fun DetalleVehiculoScreen(
                     }
                 }
             }
+        }
 
-            if (mostrarDialogoConfirmacion) {
-                AlertDialog(
-                    onDismissRequest = { mostrarDialogoConfirmacion = false },
-                    title = { Text("¿Eliminar vehículo?") },
-                    text = { Text("Esta acción no se puede deshacer.") },
-                    confirmButton = {
-                        TextButton(onClick = {
-                            mostrarDialogoConfirmacion = false
-                            scope.launch {
-                                try {
-                                    val response = RetrofitProvider.instance.eliminarVehiculo(vehiculoId)
-                                    if (response.isSuccessful) {
-                                        onBack()
-                                    } else {
-                                        error = "Error al eliminar vehículo: ${response.code()}"
-                                    }
-                                } catch (e: Exception) {
-                                    error = "Error al eliminar vehículo: ${e.message}"
+        // Diálogo de confirmación para eliminar vehículo
+        if (mostrarDialogoConfirmacion) {
+            AlertDialog(
+                onDismissRequest = { mostrarDialogoConfirmacion = false },
+                title = { Text("¿Eliminar vehículo?") },
+                text = { Text("Esta acción no se puede deshacer.") },
+                confirmButton = {
+                    TextButton(onClick = {
+                        mostrarDialogoConfirmacion = false
+                        scope.launch {
+                            try {
+                                // Llamo al backend para eliminar el vehículo
+                                val response = RetrofitProvider.instance.eliminarVehiculo(vehiculoId)
+                                if (response.isSuccessful) {
+                                    // Si se elimina correctamente, regreso a la pantalla anterior
+                                    onBack()
+                                } else {
+                                    error = "Error al eliminar vehículo: ${response.code()}"
                                 }
+                            } catch (e: Exception) {
+                                error = "Error al eliminar vehículo: ${e.message}"
                             }
-                        }) {
-                            Text("Eliminar", color = MaterialTheme.colorScheme.error)
                         }
-                    },
-                    dismissButton = {
-                        TextButton(onClick = { mostrarDialogoConfirmacion = false }) {
-                            Text("Cancelar")
-                        }
+                    }) {
+                        Text("Eliminar", color = MaterialTheme.colorScheme.error)
                     }
-                )
-            }
+                },
+                dismissButton = {
+                    TextButton(onClick = { mostrarDialogoConfirmacion = false }) {
+                        Text("Cancelar")
+                    }
+                }
+            )
         }
     }
 }

@@ -14,7 +14,6 @@ import com.mantenimientovehiculospro.data.model.Vehiculo
 import com.mantenimientovehiculospro.data.network.RetrofitProvider
 import com.mantenimientovehiculospro.util.formatearFechaVisual
 import kotlinx.coroutines.launch
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ResumenMantenimientosScreen(
@@ -24,11 +23,13 @@ fun ResumenMantenimientosScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
+    // Estados principales de la pantalla
     var vehiculo by remember { mutableStateOf<Vehiculo?>(null) }
     var mantenimientos by remember { mutableStateOf<List<Mantenimiento>>(emptyList()) }
     var error by remember { mutableStateOf<String?>(null) }
     var cargando by remember { mutableStateOf(true) }
 
+    // Al entrar en la pantalla, cargo el vehículo y sus mantenimientos desde el backend
     LaunchedEffect(vehiculoId) {
         scope.launch {
             try {
@@ -49,6 +50,7 @@ fun ResumenMantenimientosScreen(
             TopAppBar(
                 title = { Text("Resumen de Mantenimientos") },
                 navigationIcon = {
+                    // Botón para volver atrás
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
                     }
@@ -62,9 +64,15 @@ fun ResumenMantenimientosScreen(
                 .padding(16.dp)
         ) {
             when {
+                // Estado de carga
                 cargando -> CircularProgressIndicator()
+
+                // Estado de error
                 error != null -> Text(error!!, color = MaterialTheme.colorScheme.error)
+
+                // Estado con datos cargados
                 vehiculo != null -> {
+                    // Información básica del vehículo
                     Text(
                         "Vehículo: ${vehiculo!!.marca} ${vehiculo!!.modelo}",
                         style = MaterialTheme.typography.titleLarge
@@ -77,9 +85,11 @@ fun ResumenMantenimientosScreen(
                     Spacer(modifier = Modifier.height(24.dp))
                     Text("Historial de mantenimientos:", style = MaterialTheme.typography.titleMedium)
 
+                    // Si no hay mantenimientos registrados
                     if (mantenimientos.isEmpty()) {
                         Text("No hay mantenimientos registrados.")
                     } else {
+                        // Recorro la lista de mantenimientos y muestro cada uno en una tarjeta
                         mantenimientos.forEach { m ->
                             Card(
                                 modifier = Modifier
