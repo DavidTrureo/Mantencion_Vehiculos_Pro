@@ -67,6 +67,7 @@ dependencies {
     implementation("com.squareup.okhttp3:logging-interceptor:4.11.0")
     implementation("androidx.datastore:datastore-preferences:1.0.0")
     implementation(libs.androidx.room.common.jvm)
+    implementation(libs.androidx.room.runtime.android)
 
     // --- Testing ---
     testImplementation(libs.junit)
