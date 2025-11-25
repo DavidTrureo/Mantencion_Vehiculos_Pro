@@ -14,6 +14,7 @@ public class VehiculoMapper {
         dto.setAnio(v.getAnio());
         dto.setKilometraje(v.getKilometraje());
         dto.setPropietarioId(v.getPropietario().getId());
+        dto.setQrCode(v.getQrCode()); // incluir QR
         return dto;
     }
 
@@ -25,6 +26,7 @@ public class VehiculoMapper {
         v.setAnio(dto.getAnio());
         v.setKilometraje(dto.getKilometraje());
         v.setPropietario(propietario);
+        v.setQrCode(dto.getQrCode()); // opcional, se puede generar en el Controller
         return v;
     }
 }

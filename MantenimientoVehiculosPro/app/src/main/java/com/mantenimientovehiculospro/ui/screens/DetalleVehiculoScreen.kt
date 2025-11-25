@@ -1,5 +1,8 @@
 package com.mantenimientovehiculospro.ui.screens
 
+import android.graphics.Bitmap
+import android.graphics.Color
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -10,8 +13,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.qrcode.QRCodeWriter
 import com.mantenimientovehiculospro.data.local.UsuarioPreferences
 import com.mantenimientovehiculospro.data.model.Mantenimiento
 import com.mantenimientovehiculospro.data.model.Vehiculo
@@ -22,7 +28,6 @@ import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
-// Función de extensión para formatear fechas de "yyyy-MM-dd" a "dd-MM-yyyy"
 fun String.formatearFechaVisual(): String {
     return try {
         val original = LocalDate.parse(this, DateTimeFormatter.ofPattern("yyyy-MM-dd"))
@@ -45,7 +50,6 @@ fun DetalleVehiculoScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    // Estados principales de la pantalla
     var vehiculo by remember { mutableStateOf<Vehiculo?>(null) }
     var mantenimientos by remember { mutableStateOf<List<Mantenimiento>>(emptyList()) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -54,7 +58,6 @@ fun DetalleVehiculoScreen(
     var refrescar by remember { mutableStateOf(false) }
     var tipoExpandido by remember { mutableStateOf<String?>(null) }
 
-    // Efecto que carga los datos del vehículo y sus mantenimientos
     LaunchedEffect(vehiculoId, refrescar) {
         scope.launch {
             val usuarioId = UsuarioPreferences.obtenerUsuarioId(context)
@@ -63,7 +66,6 @@ fun DetalleVehiculoScreen(
                 cargando = false
                 return@launch
             }
-
             try {
                 val lista = RetrofitProvider.instance.obtenerVehiculos(usuarioId)
                 vehiculo = lista.find { it.id == vehiculoId }
@@ -97,20 +99,15 @@ fun DetalleVehiculoScreen(
             cargando -> Box(
                 modifier = Modifier.fillMaxSize().padding(paddingValues),
                 contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator()
-            }
+            ) { CircularProgressIndicator() }
 
             error != null -> Column(
                 modifier = Modifier.fillMaxSize().padding(paddingValues).padding(16.dp)
-            ) {
-                Text(error!!, color = MaterialTheme.colorScheme.error)
-            }
+            ) { Text(error!!, color = MaterialTheme.colorScheme.error) }
 
             vehiculo != null -> LazyColumn(
                 modifier = Modifier.padding(paddingValues).padding(16.dp).fillMaxSize()
             ) {
-                // Información del vehículo
                 item {
                     Text("Marca: ${vehiculo!!.marca}", style = MaterialTheme.typography.titleLarge)
                     Text("Modelo: ${vehiculo!!.modelo}", style = MaterialTheme.typography.bodyLarge)
@@ -119,7 +116,20 @@ fun DetalleVehiculoScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // ✅ Botones corregidos con parámetros nombrados
+                    // ✅ Mostrar QR
+                    Text("Código QR:", style = MaterialTheme.typography.titleMedium)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    vehiculo!!.qrCode?.let { contenido ->
+                        val qrBitmap = generarQrBitmap(contenido)
+                        Image(
+                            bitmap = qrBitmap.asImageBitmap(),
+                            contentDescription = "Código QR del vehículo",
+                            modifier = Modifier.size(200.dp)
+                        )
+                    } ?: Text("Este vehículo no tiene QR asignado")
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
                     BotonAccion(
                         texto = "Editar Vehículo",
                         colorFondo = WarningYellow,
@@ -149,7 +159,7 @@ fun DetalleVehiculoScreen(
                     Text("Mantenimientos registrados:", style = MaterialTheme.typography.titleMedium)
                 }
 
-                // Lista de mantenimientos
+                // Lista de mantenimientos agrupados
                 if (mantenimientos.isEmpty()) {
                     item {
                         Text(
@@ -216,7 +226,6 @@ fun DetalleVehiculoScreen(
                                             Text("Fecha: ${mantenimiento.fecha?.formatearFechaVisual() ?: "Sin fecha"}")
                                             Text("Kilometraje: ${mantenimiento.kilometraje} km")
                                             Text("Descripción: ${mantenimiento.descripcion ?: "-"}")
-
                                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                                                 TextButton(onClick = { mantenimiento.id?.let { onEditarMantenimiento(it) } }) {
                                                     Text("Editar")
@@ -255,10 +264,8 @@ fun DetalleVehiculoScreen(
                         mostrarDialogoConfirmacion = false
                         scope.launch {
                             try {
-                                // Llamo al backend para eliminar el vehículo
                                 val response = RetrofitProvider.instance.eliminarVehiculo(vehiculoId)
                                 if (response.isSuccessful) {
-                                    // Si se elimina correctamente, regreso a la pantalla anterior
                                     onBack()
                                 } else {
                                     error = "Error al eliminar vehículo: ${response.code()}"
@@ -279,4 +286,17 @@ fun DetalleVehiculoScreen(
             )
         }
     }
+}
+
+// ✅ Función para generar el QR como Bitmap
+private fun generarQrBitmap(contenido: String): Bitmap {
+    val writer = QRCodeWriter()
+    val bitMatrix = writer.encode(contenido, BarcodeFormat.QR_CODE, 400, 400)
+    val bitmap = Bitmap.createBitmap(400, 400, Bitmap.Config.RGB_565)
+    for (x in 0 until 400) {
+        for (y in 0 until 400) {
+            bitmap.setPixel(x, y, if (bitMatrix[x, y]) Color.BLACK else Color.WHITE)
+        }
+    }
+    return bitmap
 }

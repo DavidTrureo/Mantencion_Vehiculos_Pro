@@ -42,7 +42,12 @@ public class VehiculoController {
                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
 
         Vehiculo entidad = VehiculoMapper.toEntity(dto, propietario);
+
+        // Generar QR automáticamente
         Vehiculo guardado = vehiculoRepository.save(entidad);
+        guardado.setQrCode("VEHICULO:" + guardado.getId());
+        guardado = vehiculoRepository.save(guardado);
+
         return ResponseEntity.ok(VehiculoMapper.toDTO(guardado));
     }
 

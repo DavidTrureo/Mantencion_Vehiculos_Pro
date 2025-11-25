@@ -24,6 +24,10 @@ public class VehiculoDTO {
     @NotNull(message = "El propietario es obligatorio")
     private Long propietarioId;
 
+    // Nuevo campo para devolver el QR al frontend
+    private String qrCode;
+
+    // ===== Getters y Setters =====
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
@@ -41,4 +45,7 @@ public class VehiculoDTO {
 
     public Long getPropietarioId() { return propietarioId; }
     public void setPropietarioId(Long propietarioId) { this.propietarioId = propietarioId; }
+
+    public String getQrCode() { return qrCode; }
+    public void setQrCode(String qrCode) { this.qrCode = qrCode; }
 }

@@ -6,5 +6,6 @@ data class Vehiculo(
     val modelo: String,
     val anio: Int,
     val kilometraje: Int,
-    val propietarioId: Long? = null // requerido por el backend
+    val propietarioId: Long? = null,
+    val qrCode: String? = null // nuevo campo para QR
 )

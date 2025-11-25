@@ -17,6 +17,10 @@ public class Vehiculo {
     private int anio;
     private int kilometraje;
 
+    // Nuevo campo para almacenar el contenido del QR
+    @Lob
+    private String qrCode;
+
     @ManyToOne
     @JoinColumn(name = "propietario_id")
     @JsonBackReference
@@ -25,6 +29,7 @@ public class Vehiculo {
     @OneToMany(mappedBy = "vehiculo", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Mantenimiento> mantenimientos;
 
+    // ===== Getters y Setters =====
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
@@ -39,6 +44,9 @@ public class Vehiculo {
 
     public int getKilometraje() { return kilometraje; }
     public void setKilometraje(int kilometraje) { this.kilometraje = kilometraje; }
+
+    public String getQrCode() { return qrCode; }
+    public void setQrCode(String qrCode) { this.qrCode = qrCode; }
 
     public Usuario getPropietario() { return propietario; }
     public void setPropietario(Usuario propietario) { this.propietario = propietario; }

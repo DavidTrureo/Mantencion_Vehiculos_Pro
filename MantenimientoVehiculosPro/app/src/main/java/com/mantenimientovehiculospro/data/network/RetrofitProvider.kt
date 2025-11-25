@@ -9,33 +9,36 @@ import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
-// Este objeto centraliza la configuración de Retrofit para toda la app.
-// Lo uso para crear una instancia única de ApiService que se conecta al backend.
+// RetrofitProvider centraliza la configuración de Retrofit para toda la app.
+// Se conecta al backend usando la IP guardada en preferencias o un valor por defecto.
 object RetrofitProvider {
 
-    // Configuro un interceptor para registrar las peticiones HTTP en consola.
-    // Esto me ayuda a depurar las llamadas a la API.
+    // Interceptor para registrar las peticiones HTTP en consola (útil para depuración).
     private val logger = HttpLoggingInterceptor().apply {
         level = HttpLoggingInterceptor.Level.BODY
     }
 
-    // Creo el cliente HTTP con el interceptor de logging.
+    // Cliente HTTP con el interceptor de logging.
     private val client = OkHttpClient.Builder()
         .addInterceptor(logger)
         .build()
 
-    // Esta función obtiene la IP del backend desde las preferencias del usuario.
-    // Si no hay IP guardada, uso "10.0.2.2" como IP por defecto para emulador Android.
+    // Obtiene la IP del backend.
     private fun obtenerBaseUrl(context: Context): String {
-        val ip = runBlocking {
-            UsuarioPreferences.obtenerIpBackend(context)
-        } ?: "10.0.2.2" // IP por defecto para emulador
+        // --- CONFIGURACIÓN DE IP ---
+        // Descomenta la línea que necesites y comenta la otra.
+
+        // Opción 1: IP para probar en tu TELÉFONO FÍSICO (asegúrate que sea la IP correcta de tu Mac)
+        val ip = "192.168.100.105"
+
+        // Opción 2: IP para probar en el EMULADOR de Android Studio
+        // val ip = "10.0.2.2"
+
         return "http://$ip:8080/"
     }
 
-    // Creo la instancia de Retrofit de forma lazy (solo cuando se necesita).
-    // Uso el contexto de la aplicación para acceder a las preferencias.
-    // Configuro Retrofit con la IP dinámica, el cliente HTTP y el convertidor Gson.
+    // Instancia única de ApiService con Retrofit.
+    // Usa la IP dinámica obtenida de preferencias o el valor por defecto.
     val instance: ApiService by lazy {
         val context = MyApp.instance.applicationContext
         Retrofit.Builder()
