@@ -59,27 +59,25 @@ fun DetalleVehiculoScreen(
     var tipoExpandido by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(vehiculoId, refrescar) {
-        scope.launch {
-            val usuarioId = UsuarioPreferences.obtenerUsuarioId(context)
-            if (usuarioId == null) {
-                error = "No se pudo obtener el usuario"
-                cargando = false
-                return@launch
+        val usuarioId = UsuarioPreferences.obtenerUsuarioId(context)
+        if (usuarioId == null) {
+            error = "No se pudo obtener el usuario"
+            cargando = false
+            return@LaunchedEffect
+        }
+        try {
+            val lista = RetrofitProvider.instance.obtenerVehiculos(usuarioId)
+            vehiculo = lista.find { it.id == vehiculoId }
+            if (vehiculo == null) {
+                error = "Vehículo no encontrado"
+            } else {
+                mantenimientos = RetrofitProvider.instance.obtenerMantenimientos(vehiculoId)
             }
-            try {
-                val lista = RetrofitProvider.instance.obtenerVehiculos(usuarioId)
-                vehiculo = lista.find { it.id == vehiculoId }
-                if (vehiculo == null) {
-                    error = "Vehículo no encontrado"
-                } else {
-                    mantenimientos = RetrofitProvider.instance.obtenerMantenimientos(vehiculoId)
-                }
-            } catch (e: Exception) {
-                error = "Error al cargar datos: ${e.message}"
-            } finally {
-                cargando = false
-                refrescar = false
-            }
+        } catch (e: Exception) {
+            error = "Error al cargar datos: ${e.message}"
+        } finally {
+            cargando = false
+            refrescar = false
         }
     }
 

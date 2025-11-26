@@ -1,11 +1,13 @@
 package com.mantenimientovehiculospro.ui.screens
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.mantenimientovehiculospro.data.model.EstadoMantenimiento
 import com.mantenimientovehiculospro.data.model.Mantenimiento
@@ -15,6 +17,7 @@ import com.mantenimientovehiculospro.util.formatearFechaVisual
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CrearMantenimientoScreen(
@@ -24,7 +27,6 @@ fun CrearMantenimientoScreen(
 ) {
     val scope = rememberCoroutineScope()
 
-    // Lista de tipos de mantención predefinidos que el usuario puede elegir
     val tiposMantencion = listOf(
         "Cambio de aceite",
         "Revisión de frenos",
@@ -36,43 +38,64 @@ fun CrearMantenimientoScreen(
         "Limpieza de inyectores"
     )
 
-    // Estados para capturar los datos del formulario
+    // Estados del formulario
     var tipo by remember { mutableStateOf("") }
     var descripcion by remember { mutableStateOf("") }
     var fechaISO by remember { mutableStateOf("") }
     var kilometrajeTexto by remember { mutableStateOf("") }
-    var error by remember { mutableStateOf<String?>(null) }
+    var errorGeneral by remember { mutableStateOf<String?>(null) }
     var expanded by remember { mutableStateOf(false) }
 
-    // Estados para manejar historial de mantenimientos
+    // Historial y validación
     var historial by remember { mutableStateOf<List<Mantenimiento>>(emptyList()) }
     var ultimaMantencion by remember { mutableStateOf<Mantenimiento?>(null) }
     var tipoSeleccionadoSinHistorial by remember { mutableStateOf(false) }
 
-    // Cargo el historial de mantenimientos del vehículo
+    // ✅ Estado de error específico para el kilometraje
+    var kilometrajeError by remember { mutableStateOf<String?>(null) }
+
+    // Carga inicial del historial
     LaunchedEffect(vehiculoId) {
-        scope.launch {
-            try {
-                historial = RetrofitProvider.instance.obtenerMantenimientos(vehiculoId)
-            } catch (_: Exception) {
-                // Silencio el error si no se puede cargar
-            }
+        try {
+            historial = RetrofitProvider.instance.obtenerMantenimientos(vehiculoId)
+        } catch (e: Exception) {
+            errorGeneral = "No se pudo cargar el historial."
         }
     }
 
-    // Cada vez que cambia el tipo, busco la última mantención de ese tipo
+    // Reacciona a cambios en el tipo de mantenimiento
     LaunchedEffect(tipo, historial) {
         val filtradas = historial.filter { it.tipo == tipo }
         ultimaMantencion = filtradas.maxByOrNull { it.kilometraje }
         tipoSeleccionadoSinHistorial = tipo.isNotBlank() && filtradas.isEmpty()
     }
 
+    // ✅ Validación en tiempo real del kilometraje
+    LaunchedEffect(kilometrajeTexto, ultimaMantencion) {
+        val kilometraje = kilometrajeTexto.toIntOrNull()
+        val mantenimientoPrevio = ultimaMantencion
+
+        if (kilometrajeTexto.isNotBlank() && kilometraje == null) {
+            kilometrajeError = "Debe ser un número."
+        } else if (mantenimientoPrevio != null && kilometraje != null && kilometraje < mantenimientoPrevio.kilometraje) {
+            kilometrajeError = "Debe ser mayor o igual a ${mantenimientoPrevio.kilometraje} km"
+        } else {
+            kilometrajeError = null // Sin error
+        }
+    }
+
+    // ✅ Determina si el formulario es válido para habilitar el botón Guardar
+    val isFormValid = tipo.isNotBlank() &&
+            descripcion.isNotBlank() &&
+            fechaISO.isNotBlank() &&
+            kilometrajeTexto.isNotBlank() &&
+            kilometrajeError == null
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Nuevo Mantenimiento") },
                 navigationIcon = {
-                    // Botón para volver atrás
                     IconButton(onClick = onCancelar) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
                     }
@@ -85,7 +108,6 @@ fun CrearMantenimientoScreen(
                 .padding(paddingValues)
                 .padding(16.dp)
         ) {
-            // Selector de tipo de mantenimiento con menú desplegable
             ExposedDropdownMenuBox(
                 expanded = expanded,
                 onExpandedChange = { expanded = !expanded }
@@ -96,131 +118,95 @@ fun CrearMantenimientoScreen(
                     readOnly = true,
                     label = { Text("Tipo de mantenimiento") },
                     placeholder = { Text("Selecciona una opción") },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .menuAnchor()
+                    modifier = Modifier.fillMaxWidth().menuAnchor()
                 )
-                ExposedDropdownMenu(
-                    expanded = expanded,
-                    onDismissRequest = { expanded = false }
-                ) {
+                ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                     tiposMantencion.forEach { opcion ->
                         DropdownMenuItem(
                             text = { Text(opcion) },
-                            onClick = {
-                                tipo = opcion
-                                expanded = false
-                            }
+                            onClick = { tipo = opcion; expanded = false }
                         )
                     }
                 }
             }
-
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Muestro historial previo si existe
             val mantenimientoPrevio = ultimaMantencion
             if (mantenimientoPrevio != null) {
                 val fechaFormateada = mantenimientoPrevio.fecha?.formatearFechaVisual() ?: "Sin fecha"
-                Text(
-                    text = "Última mantención de \"$tipo\": $fechaFormateada a los ${mantenimientoPrevio.kilometraje} km",
-                    style = MaterialTheme.typography.bodySmall
-                )
+                Text("Última vez: $fechaFormateada a los ${mantenimientoPrevio.kilometraje} km", style = MaterialTheme.typography.bodySmall)
             } else if (tipoSeleccionadoSinHistorial) {
-                Text(
-                    text = "No hay registros previos de este mantenimiento.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.outline
-                )
+                Text("No hay registros previos de este mantenimiento.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
             }
-
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Campo de descripción
             OutlinedTextField(
                 value = descripcion,
                 onValueChange = { descripcion = it },
                 label = { Text("Descripción") },
-                placeholder = { Text("Describe qué se hizo o se revisó") },
+                placeholder = { Text("Ej: Aceite Castrol 5W-30") },
                 modifier = Modifier.fillMaxWidth()
             )
-
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Selector de fecha
             Box(modifier = Modifier.fillMaxWidth()) {
-                FechaSelector(
-                    fechaSeleccionada = fechaISO,
-                    onFechaSeleccionada = { fechaISO = it }
-                )
+                FechaSelector(fechaSeleccionada = fechaISO, onFechaSeleccionada = { fechaISO = it })
             }
-
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Campo de kilometraje
+            // ✅ Campo de kilometraje con validación visual
             OutlinedTextField(
                 value = kilometrajeTexto,
                 onValueChange = { kilometrajeTexto = it },
                 label = { Text("Kilometraje") },
                 placeholder = { Text("Ej: 50000") },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                isError = kilometrajeError != null, // Marca el campo en rojo si hay error
+                supportingText = { // Muestra el mensaje de error debajo del campo
+                    if (kilometrajeError != null) {
+                        Text(kilometrajeError!!, color = MaterialTheme.colorScheme.error)
+                    }
+                },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number) // Muestra el teclado numérico
             )
-
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Botón Guardar
-            Button(onClick = {
-                val kilometraje = kilometrajeTexto.toIntOrNull()
-                if (tipo.isBlank() || descripcion.isBlank() || fechaISO.isBlank() || kilometraje == null) {
-                    error = "Completa todos los campos correctamente."
-                    return@Button
-                }
+            // ✅ Botón que se habilita/deshabilita según la validez del formulario
+            Button(
+                onClick = {
+                    val kilometraje = kilometrajeTexto.toInt() // Seguro porque isFormValid es true
 
-                // Valido que la fecha no sea futura
-                val fechaSeleccionada = try {
-                    LocalDate.parse(fechaISO, DateTimeFormatter.ISO_DATE)
-                } catch (e: Exception) {
-                    null
-                }
-
-                if (fechaSeleccionada == null || fechaSeleccionada.isAfter(LocalDate.now())) {
-                    error = "La fecha debe ser actual o pasada. No se permiten fechas futuras."
-                    return@Button
-                }
-
-                // Valido que el kilometraje sea mayor o igual al último registrado
-                val mantenimientoPrevio = ultimaMantencion
-                if (mantenimientoPrevio != null && kilometraje < mantenimientoPrevio.kilometraje) {
-                    error = "El kilometraje debe ser mayor o igual al de la última mantención (${mantenimientoPrevio.kilometraje} km)."
-                    return@Button
-                }
-
-                // Creo el objeto mantenimiento listo para enviar al backend
-                val mantenimiento = Mantenimiento(
-                    id = null,
-                    tipo = tipo,
-                    descripcion = descripcion,
-                    fecha = fechaISO,
-                    kilometraje = kilometraje,
-                    estado = EstadoMantenimiento.PROXIMO,
-                    vehiculoId = vehiculoId
-                )
-
-                // Llamo al backend para guardar el mantenimiento
-                scope.launch {
-                    try {
-                        RetrofitProvider.instance.crearMantenimiento(vehiculoId, mantenimiento)
-                        onMantenimientoGuardado()
-                    } catch (e: Exception) {
-                        error = "Error al guardar mantenimiento: ${e.message}"
+                    val fechaSeleccionada = LocalDate.parse(fechaISO, DateTimeFormatter.ISO_DATE)
+                    if (fechaSeleccionada.isAfter(LocalDate.now())) {
+                        errorGeneral = "La fecha no puede ser futura."
+                        return@Button
                     }
-                }
-            }) {
+
+                    val mantenimiento = Mantenimiento(
+                        id = null,
+                        tipo = tipo,
+                        descripcion = descripcion,
+                        fecha = fechaISO,
+                        kilometraje = kilometraje,
+                        estado = EstadoMantenimiento.PROXIMO,
+                        vehiculoId = vehiculoId
+                    )
+
+                    scope.launch {
+                        try {
+                            RetrofitProvider.instance.crearMantenimiento(vehiculoId, mantenimiento)
+                            onMantenimientoGuardado()
+                        } catch (e: Exception) {
+                            errorGeneral = "Error al guardar: ${e.message}"
+                        }
+                    }
+                },
+                enabled = isFormValid // El botón se habilita solo si el formulario es válido
+            ) {
                 Text("Guardar")
             }
 
-            // Muestro errores si existen
-            error?.let {
+            errorGeneral?.let {
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(it, color = MaterialTheme.colorScheme.error)
             }
