@@ -11,13 +11,18 @@ import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import com.mantenimientovehiculospro.R
 import com.mantenimientovehiculospro.data.local.UsuarioPreferences
 import com.mantenimientovehiculospro.data.model.Vehiculo
 import com.mantenimientovehiculospro.data.network.RetrofitProvider
+import com.mantenimientovehiculospro.ui.components.AppBackground
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -43,7 +48,6 @@ fun VehiculoScreen(
                 cargando = false
                 return@launch
             }
-
             try {
                 val lista = RetrofitProvider.instance.obtenerVehiculos(usuarioId)
                 vehiculos = lista
@@ -70,69 +74,87 @@ fun VehiculoScreen(
         }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Mis Vehículos") },
-                actions = {
-                    IconButton(onClick = onAddVehiculoClick) {
-                        Icon(Icons.Default.Add, contentDescription = "Agregar vehículo")
+    // ✅ Envolvemos todo en AppBackground para poner la imagen de fondo
+    AppBackground(backgroundImageResId = R.drawable.auto3) {
+        Scaffold(
+            // Hacemos el Scaffold transparente para que se vea la imagen
+            containerColor = Color.Transparent,
+            topBar = {
+                TopAppBar(
+                    title = { Text("Mis Vehículos") },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        // Le damos un efecto translúcido a la barra superior
+                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
+                        titleContentColor = MaterialTheme.colorScheme.onSurface,
+                        actionIconContentColor = MaterialTheme.colorScheme.primary
+                    ),
+                    actions = {
+                        IconButton(onClick = onAddVehiculoClick) {
+                            Icon(Icons.Default.Add, contentDescription = "Agregar vehículo")
+                        }
+                        IconButton(onClick = onLogout) {
+                            Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = "Cerrar sesión")
+                        }
                     }
-                    IconButton(onClick = onLogout) {
-                        Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = "Cerrar sesión")
-                    }
+                )
+            },
+            floatingActionButton = {
+                FloatingActionButton(
+                    onClick = { navController.navigate("scanner") },
+                    containerColor = MaterialTheme.colorScheme.primary
+                ) {
+                    Icon(Icons.Filled.CameraAlt, contentDescription = "Escanear QR", tint = MaterialTheme.colorScheme.onPrimary)
                 }
-            )
-        }
-    ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .padding(paddingValues)
-                .padding(16.dp)
-                .fillMaxSize(),
-            verticalArrangement = Arrangement.Top
-        ) {
-            // ✅ Mensaje instructivo
-            Text(
-                text = "Para acceder a los datos de un vehículo, como su historial de mantenciones, escanear su QR.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.primary
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // ✅ Botón visible con ícono de cámara y texto
-            Button(
-                onClick = { navController.navigate("scanner") },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Icon(Icons.Filled.CameraAlt, contentDescription = "Escanear QR")
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Escanear QR")
             }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // ✅ Lista de vehículos
-            when {
-                cargando -> CircularProgressIndicator()
-                error != null -> Text(error!!, color = MaterialTheme.colorScheme.error)
-                vehiculos.isEmpty() -> Text("No tienes vehículos registrados.")
-                else -> LazyColumn {
-                    items(vehiculos) { vehiculo ->
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 8.dp)
-                                .clickable {
-                                    vehiculo.id?.let { onVehiculoClick(it) }
+        ) { paddingValues ->
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .padding(start = 16.dp, end = 16.dp, top = 16.dp)
+            ) {
+                when {
+                    cargando -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                    error != null -> Text(
+                        text = error!!,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.align(Alignment.Center)
+                    )
+                    vehiculos.isEmpty() -> Text(
+                        text = "No tienes vehículos registrados. ¡Añade uno para empezar!",
+                        modifier = Modifier.align(Alignment.Center),
+                        textAlign = TextAlign.Center,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+                    else -> LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        items(vehiculos) { vehiculo ->
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { vehiculo.id?.let { onVehiculoClick(it) } },
+                                colors = CardDefaults.cardColors(
+                                    // Hacemos las tarjetas semi-transparentes para mejorar la legibilidad
+                                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.75f)
+                                )
+                            ) {
+                                Column(modifier = Modifier.padding(16.dp)) {
+                                    Text(
+                                        text = "${vehiculo.marca} ${vehiculo.modelo}",
+                                        style = MaterialTheme.typography.titleLarge,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        text = "Año: ${vehiculo.anio}",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                                    )
+                                    Text(
+                                        text = "Kilometraje: ${vehiculo.kilometraje} km",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                                    )
                                 }
-                        ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Text("Marca: ${vehiculo.marca}", style = MaterialTheme.typography.titleMedium)
-                                Text("Modelo: ${vehiculo.modelo}")
-                                Text("Año: ${vehiculo.anio}")
-                                Text("Kilometraje: ${vehiculo.kilometraje} km")
                             }
                         }
                     }
