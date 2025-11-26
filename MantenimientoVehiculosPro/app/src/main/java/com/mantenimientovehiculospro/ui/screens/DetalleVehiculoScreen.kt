@@ -1,7 +1,8 @@
 package com.mantenimientovehiculospro.ui.screens
 
 import android.graphics.Bitmap
-import android.graphics.Color
+import android.graphics.Color as AndroidColor
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -13,29 +14,23 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.qrcode.QRCodeWriter
+import com.mantenimientovehiculospro.R
 import com.mantenimientovehiculospro.data.local.UsuarioPreferences
 import com.mantenimientovehiculospro.data.model.Mantenimiento
 import com.mantenimientovehiculospro.data.model.Vehiculo
 import com.mantenimientovehiculospro.data.network.RetrofitProvider
-import com.mantenimientovehiculospro.ui.components.BotonAccion
-import com.mantenimientovehiculospro.ui.theme.*
+import com.mantenimientovehiculospro.ui.components.AppBackground
+import com.mantenimientovehiculospro.util.formatearFechaVisual // ✅ Importamos la función de utilidad
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-
-fun String.formatearFechaVisual(): String {
-    return try {
-        val original = LocalDate.parse(this, DateTimeFormatter.ofPattern("yyyy-MM-dd"))
-        original.format(DateTimeFormatter.ofPattern("dd-MM-yyyy"))
-    } catch (e: Exception) {
-        this
-    }
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -56,9 +51,9 @@ fun DetalleVehiculoScreen(
     var cargando by remember { mutableStateOf(true) }
     var mostrarDialogoConfirmacion by remember { mutableStateOf(false) }
     var refrescar by remember { mutableStateOf(false) }
-    var tipoExpandido by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(vehiculoId, refrescar) {
+        cargando = true
         val usuarioId = UsuarioPreferences.obtenerUsuarioId(context)
         if (usuarioId == null) {
             error = "No se pudo obtener el usuario"
@@ -66,12 +61,12 @@ fun DetalleVehiculoScreen(
             return@LaunchedEffect
         }
         try {
-            val lista = RetrofitProvider.instance.obtenerVehiculos(usuarioId)
-            vehiculo = lista.find { it.id == vehiculoId }
-            if (vehiculo == null) {
-                error = "Vehículo no encontrado"
-            } else {
+            val listaVehiculos = RetrofitProvider.instance.obtenerVehiculos(usuarioId)
+            vehiculo = listaVehiculos.find { it.id == vehiculoId }
+            if (vehiculo != null) {
                 mantenimientos = RetrofitProvider.instance.obtenerMantenimientos(vehiculoId)
+            } else {
+                error = "Vehículo no encontrado"
             }
         } catch (e: Exception) {
             error = "Error al cargar datos: ${e.message}"
@@ -81,167 +76,80 @@ fun DetalleVehiculoScreen(
         }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Detalle del Vehículo") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
-                    }
-                }
-            )
-        }
-    ) { paddingValues ->
-        when {
-            cargando -> Box(
-                modifier = Modifier.fillMaxSize().padding(paddingValues),
-                contentAlignment = Alignment.Center
-            ) { CircularProgressIndicator() }
-
-            error != null -> Column(
-                modifier = Modifier.fillMaxSize().padding(paddingValues).padding(16.dp)
-            ) { Text(error!!, color = MaterialTheme.colorScheme.error) }
-
-            vehiculo != null -> LazyColumn(
-                modifier = Modifier.padding(paddingValues).padding(16.dp).fillMaxSize()
-            ) {
-                item {
-                    Text("Marca: ${vehiculo!!.marca}", style = MaterialTheme.typography.titleLarge)
-                    Text("Modelo: ${vehiculo!!.modelo}", style = MaterialTheme.typography.bodyLarge)
-                    Text("Año: ${vehiculo!!.anio}")
-                    Text("Kilometraje: ${vehiculo!!.kilometraje} km")
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // ✅ Mostrar QR
-                    Text("Código QR:", style = MaterialTheme.typography.titleMedium)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    vehiculo!!.qrCode?.let { contenido ->
-                        val qrBitmap = generarQrBitmap(contenido)
-                        Image(
-                            bitmap = qrBitmap.asImageBitmap(),
-                            contentDescription = "Código QR del vehículo",
-                            modifier = Modifier.size(200.dp)
-                        )
-                    } ?: Text("Este vehículo no tiene QR asignado")
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    BotonAccion(
-                        texto = "Editar Vehículo",
-                        colorFondo = WarningYellow,
-                        onClick = { onEditar(vehiculoId) },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    BotonAccion(
-                        texto = "Agregar Mantenimiento",
-                        colorFondo = InfoBlue,
-                        onClick = { onAgregarMantenimiento(vehiculoId) },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    BotonAccion(
-                        texto = "Eliminar Vehículo",
-                        colorFondo = ErrorRed,
-                        onClick = { mostrarDialogoConfirmacion = true },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    Spacer(modifier = Modifier.height(24.dp))
-                    Text("Mantenimientos registrados:", style = MaterialTheme.typography.titleMedium)
-                }
-
-                // Lista de mantenimientos agrupados
-                if (mantenimientos.isEmpty()) {
-                    item {
-                        Text(
-                            text = "No hay mantenimientos registrados.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.outline
-                        )
-                    }
-                } else {
-                    val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
-                    val agrupadasPorTipo = mantenimientos.groupBy { it.tipo.trim().lowercase() }
-                        .mapValues { (_, lista) ->
-                            lista.sortedByDescending {
-                                try { LocalDate.parse(it.fecha ?: "", formatter) }
-                                catch (e: Exception) { LocalDate.MIN }
-                            }
+    AppBackground(backgroundImageResId = R.drawable.auto4) {
+        Scaffold(
+            containerColor = Color.Transparent,
+            topBar = {
+                TopAppBar(
+                    title = { Text("Detalle del Vehículo") },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
                         }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
+                        titleContentColor = MaterialTheme.colorScheme.onSurface,
+                        navigationIconContentColor = MaterialTheme.colorScheme.onSurface
+                    )
+                )
+            }
+        ) { paddingValues ->
+            when {
+                cargando -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+                error != null -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text(error!!, color = MaterialTheme.colorScheme.error) }
+                vehiculo != null -> LazyColumn(
+                    modifier = Modifier.padding(paddingValues).padding(16.dp).fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    item {
+                        Text("${vehiculo!!.marca} ${vehiculo!!.modelo}", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onBackground)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text("Año: ${vehiculo!!.anio}", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f))
+                        Text("Kilometraje: ${vehiculo!!.kilometraje} km", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f))
+                    }
 
-                    items(agrupadasPorTipo.entries.toList()) { entry ->
-                        val tipo = entry.key
-                        val listaOrdenada = entry.value
-                        val ultima = listaOrdenada.firstOrNull()
-                        val restantes = listaOrdenada.drop(1)
-                        val cantidad = listaOrdenada.size
-                        val tipoFormateado = tipo.replaceFirstChar { it.uppercase() }
+                    item {
+                        vehiculo!!.qrCode?.let {
+                            val qrBitmap = generarQrBitmap(it)
+                            Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
+                                Image(bitmap = qrBitmap.asImageBitmap(), contentDescription = "Código QR", modifier = Modifier.size(200.dp).padding(8.dp))
+                            }
+                        } ?: Text("No hay QR asignado", color = MaterialTheme.colorScheme.onBackground)
+                    }
 
-                        Card(
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable {
-                                tipoExpandido = if (tipoExpandido == tipo) null else tipo
-                            },
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                        ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Text("Tipo: $tipoFormateado${if (cantidad > 1) " ($cantidad)" else ""}",
-                                    style = MaterialTheme.typography.titleMedium)
-                                Text("Fecha: ${ultima?.fecha?.formatearFechaVisual() ?: "Sin fecha"}")
-                                Text("Kilometraje: ${ultima?.kilometraje} km")
-                                Text("Descripción: ${ultima?.descripcion ?: "-"}")
+                    item {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(onClick = { onAgregarMantenimiento(vehiculoId) }, modifier = Modifier.fillMaxWidth()) { Text("AGREGAR MANTENIMIENTO") }
+                            OutlinedButton(onClick = { onEditar(vehiculoId) }, modifier = Modifier.fillMaxWidth()) { Text("EDITAR VEHÍCULO") }
+                            OutlinedButton(onClick = { mostrarDialogoConfirmacion = true }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)) { Text("ELIMINAR VEHÍCULO") }
+                        }
+                    }
 
-                                Spacer(modifier = Modifier.height(8.dp))
+                    item {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text("Historial de Mantenimientos", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onBackground)
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
 
-                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                                    TextButton(onClick = { ultima?.id?.let { onEditarMantenimiento(it) } }) {
-                                        Text("Editar")
-                                    }
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    TextButton(onClick = {
-                                        ultima?.id?.let { id ->
-                                            scope.launch {
-                                                val eliminado = onEliminarMantenimiento(id)
-                                                if (eliminado) refrescar = true
-                                                else error = "No se pudo eliminar el mantenimiento"
-                                            }
-                                        }
-                                    }) {
-                                        Text("Eliminar", color = MaterialTheme.colorScheme.error)
-                                    }
-                                }
-
-                                if (tipoExpandido == tipo && restantes.isNotEmpty()) {
-                                    Divider(modifier = Modifier.padding(vertical = 8.dp))
-                                    restantes.forEach { mantenimiento ->
-                                        Column(modifier = Modifier.padding(vertical = 4.dp)) {
-                                            Text("Fecha: ${mantenimiento.fecha?.formatearFechaVisual() ?: "Sin fecha"}")
-                                            Text("Kilometraje: ${mantenimiento.kilometraje} km")
-                                            Text("Descripción: ${mantenimiento.descripcion ?: "-"}")
-                                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                                                TextButton(onClick = { mantenimiento.id?.let { onEditarMantenimiento(it) } }) {
-                                                    Text("Editar")
-                                                }
-                                                Spacer(modifier = Modifier.width(8.dp))
-                                                TextButton(onClick = {
-                                                    mantenimiento.id?.let { id ->
-                                                        scope.launch {
-                                                            val eliminado = onEliminarMantenimiento(id)
-                                                            if (eliminado) refrescar = true
-                                                            else error = "No se pudo eliminar el mantenimiento"
-                                                        }
-                                                    }
-                                                }) {
-                                                    Text("Eliminar", color = MaterialTheme.colorScheme.error)
-                                                }
-                                            }
-                                        }
+                    if (mantenimientos.isEmpty()) {
+                        item { Text("No hay mantenimientos registrados.", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)) }
+                    } else {
+                        items(mantenimientos) { mantenimiento ->
+                            Card(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                shape = MaterialTheme.shapes.medium,
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)),
+                                colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+                            ) {
+                                Column(modifier = Modifier.padding(16.dp)) {
+                                    Text("Tipo: ${mantenimiento.tipo}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
+                                    Text("Fecha: ${mantenimiento.fecha?.formatearFechaVisual() ?: "N/A"}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f))
+                                    Text("Kilometraje: ${mantenimiento.kilometraje} km", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f))
+                                    Text("Descripción: ${mantenimiento.descripcion ?: "-"}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f))
+                                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                                        TextButton(onClick = { mantenimiento.id?.let { onEditarMantenimiento(it) } }) { Text("Editar") }
+                                        TextButton(onClick = { /* Lógica para eliminar */ }) { Text("Eliminar", color = MaterialTheme.colorScheme.error) }
                                     }
                                 }
                             }
@@ -251,49 +159,27 @@ fun DetalleVehiculoScreen(
             }
         }
 
-        // Diálogo de confirmación para eliminar vehículo
         if (mostrarDialogoConfirmacion) {
             AlertDialog(
                 onDismissRequest = { mostrarDialogoConfirmacion = false },
                 title = { Text("¿Eliminar vehículo?") },
                 text = { Text("Esta acción no se puede deshacer.") },
                 confirmButton = {
-                    TextButton(onClick = {
-                        mostrarDialogoConfirmacion = false
-                        scope.launch {
-                            try {
-                                val response = RetrofitProvider.instance.eliminarVehiculo(vehiculoId)
-                                if (response.isSuccessful) {
-                                    onBack()
-                                } else {
-                                    error = "Error al eliminar vehículo: ${response.code()}"
-                                }
-                            } catch (e: Exception) {
-                                error = "Error al eliminar vehículo: ${e.message}"
-                            }
-                        }
-                    }) {
-                        Text("Eliminar", color = MaterialTheme.colorScheme.error)
-                    }
+                    Button(onClick = { scope.launch { try { RetrofitProvider.instance.eliminarVehiculo(vehiculoId); onBack() } catch (e: Exception) { error = "Error: ${e.message}" } }; mostrarDialogoConfirmacion = false }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("ELIMINAR") }
                 },
-                dismissButton = {
-                    TextButton(onClick = { mostrarDialogoConfirmacion = false }) {
-                        Text("Cancelar")
-                    }
-                }
+                dismissButton = { TextButton(onClick = { mostrarDialogoConfirmacion = false }) { Text("Cancelar") } }
             )
         }
     }
 }
 
-// ✅ Función para generar el QR como Bitmap
 private fun generarQrBitmap(contenido: String): Bitmap {
     val writer = QRCodeWriter()
     val bitMatrix = writer.encode(contenido, BarcodeFormat.QR_CODE, 400, 400)
     val bitmap = Bitmap.createBitmap(400, 400, Bitmap.Config.RGB_565)
     for (x in 0 until 400) {
         for (y in 0 until 400) {
-            bitmap.setPixel(x, y, if (bitMatrix[x, y]) Color.BLACK else Color.WHITE)
+            bitmap.setPixel(x, y, if (bitMatrix[x, y]) AndroidColor.BLACK else AndroidColor.WHITE)
         }
     }
     return bitmap

@@ -1,26 +1,17 @@
 package com.mantenimientovehiculospro.util
 
-import java.text.SimpleDateFormat
-import java.util.*
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 
-// Esta función de extensión convierte un String con formato de fecha ISO (yyyy-MM-dd)
-// en un formato más visual y amigable (dd/MM/yyyy).
-// Si ocurre un error al parsear, devuelve el mismo String original.
+/**
+ * Formatea una fecha en formato ISO ("yyyy-MM-dd") a un formato más visual para el usuario ("dd-MM-yyyy").
+ * Si la fecha es nula o tiene un formato incorrecto, devuelve el string original sin cambios.
+ */
 fun String.formatearFechaVisual(): String {
     return try {
-        // Parser: interpreta la fecha en formato ISO (ej: "2025-11-04")
-        val parser = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-
-        // Formatter: convierte la fecha a formato visual (ej: "04/11/2025")
-        val formatter = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
-
-        // Intento parsear el String original
-        val date = parser.parse(this)
-
-        // Si la fecha es válida, la formateo; si no, devuelvo el String original
-        if (date != null) formatter.format(date) else this
+        val original = LocalDate.parse(this, DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+        original.format(DateTimeFormatter.ofPattern("dd-MM-yyyy"))
     } catch (e: Exception) {
-        // En caso de error (ej: String no válido como fecha), devuelvo el original
         this
     }
 }

@@ -75,7 +75,7 @@ fun VehiculoScreen(
     }
 
     // ✅ Envolvemos todo en AppBackground para poner la imagen de fondo
-    AppBackground(backgroundImageResId = R.drawable.auto3) {
+    AppBackground(backgroundImageResId = R.drawable.odometro) {
         Scaffold(
             // Hacemos el Scaffold transparente para que se vea la imagen
             containerColor = Color.Transparent,
