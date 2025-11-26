@@ -6,6 +6,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.mantenimientovehiculospro.ui.screens.AddVehiculoScreen
 import com.mantenimientovehiculospro.ui.screens.DetalleVehiculoScreen
 import com.mantenimientovehiculospro.ui.screens.VehiculoScreen
 import com.mantenimientovehiculospro.ui.screens.QrScannerScreen
@@ -25,6 +26,14 @@ fun AppNavHost(usuarioId: Long) {
                 onVehiculoClick = { id -> navController.navigate("detalleVehiculo/$id") },
                 onLogout = { navController.navigate("inicio") },
                 navController = navController
+            )
+        }
+
+        // ✅ Pantalla para añadir un nuevo vehículo
+        composable("addVehiculo") {
+            AddVehiculoScreen(
+                onVehiculoGuardado = { navController.popBackStack() },
+                onBack = { navController.popBackStack() } // Conectamos el botón de retroceso
             )
         }
 

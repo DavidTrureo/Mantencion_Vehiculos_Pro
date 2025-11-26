@@ -29,10 +29,10 @@ object RetrofitProvider {
         // Descomenta la línea que necesites y comenta la otra.
 
         // Opción 1: IP para probar en tu TELÉFONO FÍSICO (asegúrate que sea la IP correcta de tu Mac)
-        //val ip = "192.168.100.105"
+        val ip = "192.168.100.105"
 
         // Opción 2: IP para probar en el EMULADOR de Android Studio
-         val ip = "10.0.2.2"
+        //val ip = "10.0.2.2"
 
         return "http://$ip:8080/"
     }

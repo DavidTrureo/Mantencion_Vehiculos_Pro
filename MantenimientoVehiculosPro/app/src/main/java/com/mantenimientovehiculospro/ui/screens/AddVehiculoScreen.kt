@@ -1,92 +1,140 @@
 package com.mantenimientovehiculospro.ui.screens
 
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.runtime.collectAsState
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.mantenimientovehiculospro.ui.components.BotonAccion
-import com.mantenimientovehiculospro.ui.theme.SuccessGreen
+import com.mantenimientovehiculospro.R
+import com.mantenimientovehiculospro.ui.components.AppBackground
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddVehiculoScreen(
-    onVehiculoGuardado: () -> Unit,                // Callback que se ejecuta cuando el vehículo se guarda con éxito
-    viewModel: AddVehiculoViewModel = viewModel()  // ViewModel que maneja el estado de la pantalla
+    onVehiculoGuardado: () -> Unit,
+    onBack: () -> Unit,
+    viewModel: AddVehiculoViewModel = viewModel()
 ) {
-    // Observo el estado expuesto por el ViewModel usando StateFlow
     val state by viewModel.uiState.collectAsState()
 
-    // Efecto lanzado cuando cambia el flag "vehiculoGuardado"
-    // Si es true, llamo al callback para notificar que se guardó el vehículo
     LaunchedEffect(state.vehiculoGuardado) {
         if (state.vehiculoGuardado) {
             onVehiculoGuardado()
         }
     }
 
-    // Estructura principal de la pantalla con barra superior y contenido
-    Scaffold(
-        topBar = { TopAppBar(title = { Text("Añadir Nuevo Vehículo") }) }
-    ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues) // Respeta el padding del Scaffold
-                .padding(16.dp),        // Padding interno
-            verticalArrangement = Arrangement.spacedBy(16.dp) // Espaciado entre elementos
-        ) {
-            // Campo para ingresar la marca del vehículo
-            OutlinedTextField(
-                value = state.marca,
-                onValueChange = { viewModel.onMarcaChange(it) },
-                label = { Text("Marca") },
-                placeholder = { Text("Ej: Toyota, Ford, Chevrolet...") },
-                modifier = Modifier.fillMaxWidth()
-            )
+    AppBackground(backgroundImageResId = R.drawable.auto2) {
+        Scaffold(
+            containerColor = Color.Transparent,
+            modifier = Modifier.fillMaxSize()
+        ) { padding ->
+            Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+                IconButton(
+                    onClick = onBack,
+                    modifier = Modifier.align(Alignment.TopStart).padding(8.dp)
+                ) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Volver",
+                        tint = MaterialTheme.colorScheme.onBackground
+                    )
+                }
 
-            // Campo para ingresar el modelo
-            OutlinedTextField(
-                value = state.modelo,
-                onValueChange = { viewModel.onModeloChange(it) },
-                label = { Text("Modelo") },
-                placeholder = { Text("Ej: Corolla, Ranger, Spark...") },
-                modifier = Modifier.fillMaxWidth()
-            )
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        text = "Añadir Vehículo",
+                        style = MaterialTheme.typography.headlineLarge,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+                    Spacer(modifier = Modifier.height(32.dp))
 
-            // Campo para ingresar el año
-            OutlinedTextField(
-                value = state.anio,
-                onValueChange = { viewModel.onAnioChange(it) },
-                label = { Text("Año") },
-                placeholder = { Text("Ej: 2015") },
-                modifier = Modifier.fillMaxWidth()
-            )
+                    // ✅ Campos de texto SIN colores personalizados para GARANTIZAR la compilación
+                    OutlinedTextField(
+                        value = state.marca,
+                        onValueChange = viewModel::onMarcaChange,
+                        label = { Text("Marca") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
 
-            // Campo para ingresar el kilometraje
-            OutlinedTextField(
-                value = state.kilometraje,
-                onValueChange = { viewModel.onKilometrajeChange(it) },
-                label = { Text("Kilometraje") },
-                placeholder = { Text("Ej: 75000") },
-                modifier = Modifier.fillMaxWidth()
-            )
+                    OutlinedTextField(
+                        value = state.modelo,
+                        onValueChange = viewModel::onModeloChange,
+                        label = { Text("Modelo") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
 
-            // Empuja el botón hacia abajo (ocupa el espacio restante)
-            Spacer(modifier = Modifier.weight(1f))
+                    OutlinedTextField(
+                        value = state.anio,
+                        onValueChange = viewModel::onAnioChange,
+                        label = { Text("Año") },
+                        modifier = Modifier.fillMaxWidth(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
 
-            // Botón de acción reutilizable para guardar el vehículo
-            BotonAccion(
-                texto = "GUARDAR VEHÍCULO",
-                colorFondo = SuccessGreen,
-                onClick = { viewModel.guardarVehiculo() },
-                modifier = Modifier.fillMaxWidth()
-            )
+                    OutlinedTextField(
+                        value = state.kilometraje,
+                        onValueChange = viewModel::onKilometrajeChange,
+                        label = { Text("Kilometraje") },
+                        modifier = Modifier.fillMaxWidth(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true
+                    )
 
-            // Si hay un mensaje de error o confirmación, lo muestro debajo
-            state.mensaje?.let {
-                Text(text = it, color = MaterialTheme.colorScheme.error)
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    // ✅ CORREGIDO: Lógica de error basada en el contenido del `mensaje`
+                    state.mensaje?.let {
+                        val esError = it.contains("Error", ignoreCase = true) || it.contains("campos", ignoreCase = true)
+                        val color = if (esError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onBackground
+                        Text(
+                            text = it,
+                            color = color,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+
+                    Button(
+                        onClick = { viewModel.guardarVehiculo() },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("GUARDAR VEHÍCULO")
+                    }
+                }
             }
         }
     }

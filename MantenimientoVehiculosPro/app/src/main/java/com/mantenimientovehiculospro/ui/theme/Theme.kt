@@ -6,64 +6,52 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 
-// === Definición del esquema de colores para el tema claro ===
-// Aquí asigno los colores definidos en Color.kt a las propiedades de MaterialTheme.
-private val LightColorScheme = lightColorScheme(
-    primary = PrimaryLight,
-    secondary = SecondaryLight,
-    tertiary = TertiaryLight,
-    background = BackgroundLight,
-    surface = SurfaceLight,
-    onPrimary = OnPrimaryLight,
-    onSecondary = OnSecondaryLight,
-    onBackground = OnBackgroundLight,
-    onSurface = OnSurfaceLight,
-    error = ErrorLight,
-    onError = OnErrorLight
-)
-
-// === Definición del esquema de colores para el tema oscuro ===
-// Igual que arriba, pero usando la paleta de colores oscuros.
+// Paleta de colores para el tema oscuro (el principal de la app)
 private val DarkColorScheme = darkColorScheme(
-    primary = PrimaryDark,
-    secondary = SecondaryDark,
-    tertiary = TertiaryDark,
-    background = BackgroundDark,
-    surface = SurfaceDark,
-    onPrimary = OnPrimaryDark,
-    onSecondary = OnSecondaryDark,
-    onBackground = OnBackgroundDark,
-    onSurface = OnSurfaceDark,
-    error = ErrorDark,
-    onError = OnErrorDark
+    primary = AmberAccent,           // El color principal para acciones y botones será el ámbar.
+    onPrimary = DarkGray,            // El texto sobre los botones ámbar será oscuro para mejor contraste.
+    secondary = PacificBlue,         // Color para elementos secundarios.
+    onSecondary = TextWhite,         // Texto sobre elementos secundarios.
+    background = NavyBlue,           // Fondo principal de la app.
+    onBackground = TextWhite,        // Color del texto principal sobre el fondo.
+    surface = SlateGray,             // Color para las tarjetas (cards) y otras superficies.
+    onSurface = TextWhite,           // Color del texto sobre las tarjetas.
+    error = ErrorRed,
+    onError = TextWhite
 )
 
-// === Función principal del tema de la app ===
-// Esta función envuelve toda la interfaz en un MaterialTheme personalizado.
-// Decide automáticamente si usar tema claro u oscuro, y opcionalmente colores dinámicos en Android 12+.
+// Paleta de colores para el tema claro (alternativa)
+private val LightColorScheme = lightColorScheme(
+    primary = DeepBlue,              // El color principal para acciones será el azul profundo.
+    onPrimary = White,               // Texto blanco sobre los botones azules.
+    secondary = MediumGray,          // Color para elementos secundarios.
+    onSecondary = DarkGray,          // Texto oscuro sobre elementos secundarios.
+    background = OffWhite,           // Fondo principal de la app (blanco roto).
+    onBackground = DarkGray,         // Texto principal oscuro.
+    surface = White,                 // Las tarjetas serán de color blanco puro.
+    onSurface = DarkGray,            // Texto oscuro sobre las tarjetas.
+    error = ErrorRed,
+    onError = White
+)
+
 @Composable
 fun MantenimientoVehiculosProTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(), // Detecta si el sistema está en modo oscuro
-    dynamicColor: Boolean = false,              // Si está en true y el dispositivo es Android 12+, usa Material You
-    content: @Composable () -> Unit             // Contenido de la app que hereda este tema
+    darkTheme: Boolean = isSystemInDarkTheme(),
+    dynamicColor: Boolean = false, // Desactivamos Material You para mantener nuestra identidad de marca.
+    content: @Composable () -> Unit
 ) {
-    // Selección del esquema de colores según las condiciones
     val colorScheme = when {
-        // Si está activado dynamicColor y el dispositivo soporta Android 12+, uso colores dinámicos
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
             val context = LocalContext.current
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
-        // Si el sistema está en modo oscuro, uso el esquema oscuro
         darkTheme -> DarkColorScheme
-        // Caso contrario, uso el esquema claro
         else -> LightColorScheme
     }
 
-    // Aplico el tema a toda la app
     MaterialTheme(
-        colorScheme = colorScheme, // Colores definidos
-        typography = Typography,   // Tipografía definida en Typography.kt
-        content = content          // Contenido de la UI que hereda este tema
+        colorScheme = colorScheme,
+        typography = Typography,
+        content = content
     )
 }

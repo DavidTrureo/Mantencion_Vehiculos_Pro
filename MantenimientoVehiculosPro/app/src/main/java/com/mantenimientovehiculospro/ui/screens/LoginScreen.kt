@@ -1,115 +1,148 @@
 package com.mantenimientovehiculospro.ui.screens
 
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import com.mantenimientovehiculospro.R
 import com.mantenimientovehiculospro.data.local.UsuarioPreferences
 import com.mantenimientovehiculospro.data.model.Usuario
 import com.mantenimientovehiculospro.data.network.RetrofitProvider
-import com.mantenimientovehiculospro.ui.components.BotonAccion
-import com.mantenimientovehiculospro.ui.theme.InfoBlue
-import com.mantenimientovehiculospro.ui.theme.NeutralGray
+import com.mantenimientovehiculospro.ui.components.AppBackground
 import kotlinx.coroutines.launch
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginScreen(
     onLoginSuccess: () -> Unit,
     onBack: () -> Unit
 ) {
-    // Obtengo el contexto de la aplicación y preparo un scope para corrutinas
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // Variables de estado que guardan lo que el usuario escribe en los campos
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
 
-    // Uso un Scaffold para estructurar la pantalla con barra superior y snackbar
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Iniciar Sesión") },
-                navigationIcon = {
-                    // Botón de retroceso en la barra superior
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
+    AppBackground(backgroundImageResId = R.drawable.auto2) {
+        Scaffold(
+            snackbarHost = { SnackbarHost(snackbarHostState) },
+            containerColor = Color.Transparent,
+            modifier = Modifier.fillMaxSize()
+        ) { padding ->
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+            ) {
+                IconButton(
+                    onClick = onBack,
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Volver",
+                        tint = MaterialTheme.colorScheme.onBackground
+                    )
+                }
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 24.dp),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "Iniciar Sesión",
+                        style = MaterialTheme.typography.headlineLarge,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+                    Spacer(modifier = Modifier.height(32.dp))
+
+                    // ✅ CAMPO DE TEXTO SIMPLIFICADO (SIN COLORES PERSONALIZADOS)
+                    OutlinedTextField(
+                        value = email,
+                        onValueChange = { email = it },
+                        label = { Text("Correo electrónico") },
+                        placeholder = { Text("ejemplo@correo.com") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // ✅ CAMPO DE TEXTO SIMPLIFICADO (SIN COLORES PERSONALIZADOS)
+                    OutlinedTextField(
+                        value = password,
+                        onValueChange = { password = it },
+                        label = { Text("Contraseña") },
+                        placeholder = { Text("••••••••") },
+                        visualTransformation = PasswordVisualTransformation(),
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    Button(
+                        onClick = {
+                            scope.launch {
+                                if (email.isBlank() || password.isBlank()) {
+                                    snackbarHostState.showSnackbar("Completa todos los campos")
+                                    return@launch
+                                }
+                                try {
+                                    val usuario = Usuario(email = email, password = password)
+                                    val respuesta = RetrofitProvider.instance.login(usuario)
+                                    respuesta.id?.let {
+                                        UsuarioPreferences.guardarUsuarioId(context, it)
+                                        onLoginSuccess()
+                                    } ?: snackbarHostState.showSnackbar("Error: ID de usuario no recibido")
+                                } catch (e: Exception) {
+                                    snackbarHostState.showSnackbar("Credenciales inválidas o usuario no existe")
+                                }
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("INGRESAR")
+                    }
+
+                    TextButton(
+                        onClick = onBack,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("VOLVER", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f))
                     }
                 }
-            )
-        },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
-    ) { paddingValues ->
-        // Organizo el contenido en una columna con espaciado
-        Column(
-            modifier = Modifier
-                .padding(paddingValues)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            // Campo de texto para el correo electrónico
-            OutlinedTextField(
-                value = email,
-                onValueChange = { email = it },
-                label = { Text("Correo electrónico") },
-                placeholder = { Text("ejemplo@correo.com") },
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            // Campo de texto para la contraseña (oculta con puntos)
-            OutlinedTextField(
-                value = password,
-                onValueChange = { password = it },
-                label = { Text("Contraseña") },
-                placeholder = { Text("••••••••") },
-                visualTransformation = PasswordVisualTransformation(),
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            // Botón personalizado para ingresar
-            BotonAccion(
-                texto = "Ingresar",
-                colorFondo = InfoBlue,
-                onClick = {
-                    scope.launch {
-                        // Valido que los campos no estén vacíos
-                        if (email.isBlank() || password.isBlank()) {
-                            snackbarHostState.showSnackbar("Completa todos los campos")
-                            return@launch
-                        }
-
-                        try {
-                            // Creo un objeto Usuario y hago la llamada al backend con Retrofit
-                            val usuario = Usuario(email = email, password = password)
-                            val respuesta = RetrofitProvider.instance.login(usuario)
-
-                            // Si recibo un ID válido, lo guardo en preferencias y navego
-                            respuesta.id?.let {
-                                UsuarioPreferences.guardarUsuarioId(context, it)
-                                onLoginSuccess()
-                            } ?: snackbarHostState.showSnackbar("Error: ID de usuario no recibido")
-                        } catch (e: Exception) {
-                            // Si ocurre un error, muestro un mensaje en el snackbar
-                            snackbarHostState.showSnackbar("Credenciales inválidas o usuario no existe")
-                        }
-                    }
-                },
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            // Botón para volver atrás
-            BotonAccion(
-                texto = "Volver",
-                colorFondo = NeutralGray,
-                onClick = onBack,
-                modifier = Modifier.fillMaxWidth()
-            )
+            }
         }
     }
 }

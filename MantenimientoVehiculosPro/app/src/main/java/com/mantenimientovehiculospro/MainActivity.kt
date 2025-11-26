@@ -63,7 +63,9 @@ class MainActivity : ComponentActivity() {
                                 navController.navigate("vehiculo_list") {
                                     popUpTo("add_vehiculo") { inclusive = true }
                                 }
-                            }
+                            },
+                            // ✅ CORRECCIÓN: Pasando el parámetro onBack que faltaba
+                            onBack = { navController.popBackStack() }
                         )
                     }
 
