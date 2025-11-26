@@ -1,5 +1,6 @@
 package com.mantenimientovehiculospro.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -74,16 +75,14 @@ fun VehiculoScreen(
         }
     }
 
-    // ✅ Envolvemos todo en AppBackground para poner la imagen de fondo
-    AppBackground(backgroundImageResId = R.drawable.odometro) {
+    // ✅ 1. Usamos la nueva imagen de fondo del odómetro
+    AppBackground(backgroundImageResId = R.drawable.auto3) {
         Scaffold(
-            // Hacemos el Scaffold transparente para que se vea la imagen
             containerColor = Color.Transparent,
             topBar = {
                 TopAppBar(
                     title = { Text("Mis Vehículos") },
                     colors = TopAppBarDefaults.topAppBarColors(
-                        // Le damos un efecto translúcido a la barra superior
                         containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
                         titleContentColor = MaterialTheme.colorScheme.onSurface,
                         actionIconContentColor = MaterialTheme.colorScheme.primary
@@ -128,31 +127,33 @@ fun VehiculoScreen(
                     )
                     else -> LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         items(vehiculos) { vehiculo ->
+                            // ✅ 2. Aplicamos el estilo "Holográfico" a las tarjetas
                             Card(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clickable { vehiculo.id?.let { onVehiculoClick(it) } },
+                                shape = MaterialTheme.shapes.large,
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)), // Borde ámbar
                                 colors = CardDefaults.cardColors(
-                                    // Hacemos las tarjetas semi-transparentes para mejorar la legibilidad
-                                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.75f)
+                                    containerColor = Color.Transparent // Fondo transparente
                                 )
                             ) {
                                 Column(modifier = Modifier.padding(16.dp)) {
                                     Text(
                                         text = "${vehiculo.marca} ${vehiculo.modelo}",
                                         style = MaterialTheme.typography.titleLarge,
-                                        color = MaterialTheme.colorScheme.onSurface
+                                        color = MaterialTheme.colorScheme.onBackground
                                     )
                                     Spacer(modifier = Modifier.height(8.dp))
                                     Text(
                                         text = "Año: ${vehiculo.anio}",
                                         style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
                                     )
                                     Text(
                                         text = "Kilometraje: ${vehiculo.kilometraje} km",
                                         style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
                                     )
                                 }
                             }
