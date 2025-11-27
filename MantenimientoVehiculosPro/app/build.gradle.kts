@@ -2,8 +2,6 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
-    // ✅ 1. AÑADIMOS EL PLUGIN KSP
-    alias(libs.plugins.google.ksp)
 }
 
 android {
@@ -68,11 +66,6 @@ dependencies {
     implementation(libs.retrofit.gson)
     implementation(libs.okhttp.logging)
     implementation(libs.androidx.datastore.preferences)
-
-    // ✅ 2. AÑADIMOS LAS DEPENDENCIAS DE ROOM
-    implementation("androidx.room:room-runtime:2.6.1")
-    implementation("androidx.room:room-ktx:2.6.1") // Para soporte de Coroutines
-    ksp("androidx.room:room-compiler:2.6.1") // Procesador de anotaciones
 
     // --- QR Generation ---
     implementation(libs.zxing.core)

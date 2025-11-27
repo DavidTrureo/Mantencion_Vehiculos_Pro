@@ -24,7 +24,10 @@ object RetrofitProvider {
         // --- CONFIGURACIÓN DE IP ---
 
         // ✅ Opción 1: IP para DESARROLLO POR USB (Método Recomendado)
-        // Funciona en cualquier red junto al comando "adb reverse tcp:8080 tcp:8080"
+        //    Muestra los dispositivos conectados /Users/vitodatrah/Library/Android/sdk/platform-tools/adb devices
+        //
+        // Funciona en cualquier red junto al comando  /Users/vitodatrah/Library/Android/sdk/platform-tools/adb -s R5CW128QKRV reverse tcp:8080 tcp:8080
+        // "adb reverse tcp:8080 tcp:8080"
         val ip = "127.0.0.1"
 
         // Opción 2: IP para EMULADOR de Android Studio
