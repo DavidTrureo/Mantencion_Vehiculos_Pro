@@ -27,10 +27,8 @@ import com.mantenimientovehiculospro.data.model.Mantenimiento
 import com.mantenimientovehiculospro.data.model.Vehiculo
 import com.mantenimientovehiculospro.data.network.RetrofitProvider
 import com.mantenimientovehiculospro.ui.components.AppBackground
-import com.mantenimientovehiculospro.util.formatearFechaVisual // ✅ Importamos la función de utilidad
+import com.mantenimientovehiculospro.util.formatearFechaVisual
 import kotlinx.coroutines.launch
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -51,6 +49,7 @@ fun DetalleVehiculoScreen(
     var cargando by remember { mutableStateOf(true) }
     var mostrarDialogoConfirmacion by remember { mutableStateOf(false) }
     var refrescar by remember { mutableStateOf(false) }
+    var tipoExpandido by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(vehiculoId, refrescar) {
         cargando = true
@@ -95,13 +94,16 @@ fun DetalleVehiculoScreen(
                 )
             }
         ) { paddingValues ->
-            when {
-                cargando -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-                error != null -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text(error!!, color = MaterialTheme.colorScheme.error) }
-                vehiculo != null -> LazyColumn(
-                    modifier = Modifier.padding(paddingValues).padding(16.dp).fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
+            LazyColumn(
+                modifier = Modifier.padding(paddingValues).fillMaxSize(),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                if (cargando) {
+                    item { Box(modifier = Modifier.fillParentMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
+                } else if (error != null) {
+                    item { Box(modifier = Modifier.fillParentMaxSize(), contentAlignment = Alignment.Center) { Text(error!!, color = MaterialTheme.colorScheme.error) } }
+                } else if (vehiculo != null) {
                     item {
                         Text("${vehiculo!!.marca} ${vehiculo!!.modelo}", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onBackground)
                         Spacer(modifier = Modifier.height(8.dp))
@@ -135,21 +137,44 @@ fun DetalleVehiculoScreen(
                     if (mantenimientos.isEmpty()) {
                         item { Text("No hay mantenimientos registrados.", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)) }
                     } else {
-                        items(mantenimientos) { mantenimiento ->
+                        val agrupadosPorTipo = mantenimientos.groupBy { it.tipo.trim().lowercase() }
+
+                        items(agrupadosPorTipo.entries.toList(), key = { it.key }) { entry ->
+                            val tipo = entry.key
+                            val listaOrdenada = entry.value.sortedByDescending { it.kilometraje }
+                            val ultimo = listaOrdenada.first()
+                            val restantes = listaOrdenada.drop(1)
+                            val cantidad = listaOrdenada.size
+                            val estaExpandido = tipoExpandido == tipo
+
                             Card(
-                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                modifier = Modifier.fillMaxWidth().clickable { tipoExpandido = if (estaExpandido) null else tipo },
                                 shape = MaterialTheme.shapes.medium,
                                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)),
                                 colors = CardDefaults.cardColors(containerColor = Color.Transparent)
                             ) {
                                 Column(modifier = Modifier.padding(16.dp)) {
-                                    Text("Tipo: ${mantenimiento.tipo}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
-                                    Text("Fecha: ${mantenimiento.fecha?.formatearFechaVisual() ?: "N/A"}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f))
-                                    Text("Kilometraje: ${mantenimiento.kilometraje} km", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f))
-                                    Text("Descripción: ${mantenimiento.descripcion ?: "-"}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f))
+                                    val titulo = "${tipo.replaceFirstChar { it.uppercase() }}" + if (cantidad > 1) " ($cantidad)" else ""
+                                    Text(titulo, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
+                                    Text("Fecha: ${ultimo.fecha?.formatearFechaVisual() ?: "N/A"}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f))
+                                    Text("Kilometraje: ${ultimo.kilometraje} km", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f))
+                                    Text("Descripción: ${ultimo.descripcion ?: "-"}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f))
+
                                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                                        TextButton(onClick = { mantenimiento.id?.let { onEditarMantenimiento(it) } }) { Text("Editar") }
+                                        TextButton(onClick = { ultimo.id?.let { onEditarMantenimiento(it) } }) { Text("Editar") }
                                         TextButton(onClick = { /* Lógica para eliminar */ }) { Text("Eliminar", color = MaterialTheme.colorScheme.error) }
+                                    }
+
+                                    if (estaExpandido && restantes.isNotEmpty()) {
+                                        Divider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.3f))
+                                        restantes.forEach { mantenimiento ->
+                                            Column(modifier = Modifier.padding(top = 8.dp)) {
+                                                Text("Fecha: ${mantenimiento.fecha?.formatearFechaVisual() ?: "N/A"}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f))
+                                                Text("Kilometraje: ${mantenimiento.kilometraje} km", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f))
+                                                Text("Descripción: ${mantenimiento.descripcion ?: "-"}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f))
+                                                Spacer(modifier = Modifier.height(8.dp))
+                                            }
+                                        }
                                     }
                                 }
                             }
