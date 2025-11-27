@@ -61,7 +61,7 @@ fun EditarMantenimientoScreen(
         }
     }
 
-    AppBackground(backgroundImageResId = R.drawable.auto2) {
+    AppBackground(backgroundImageResId = R.drawable.motor) {
         Scaffold(
             containerColor = Color.Transparent,
             topBar = {
