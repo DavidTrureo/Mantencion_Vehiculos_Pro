@@ -5,26 +5,33 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 
-// Este componente reutilizable representa un botón personalizado.
-// Lo uso en varias pantallas para mantener consistencia visual y evitar repetir código.
+// Este es un Composable que creé para tener un botón personalizado.
+// En lugar de configurar un botón desde cero cada vez, uso este y así
+// todos los botones de la app se ven parecidos y me ahorro escribir código.
 @Composable
 fun BotonAccion(
-    texto: String,             // Texto que se muestra dentro del botón
-    colorFondo: Color,         // Color de fondo del botón
-    colorTexto: Color = Color.White, // Color del texto (por defecto blanco)
-    modifier: Modifier = Modifier,   // Modifier para ajustar tamaño, padding, etc.
-    onClick: () -> Unit        // Acción que se ejecuta al hacer clic
+    // El texto que va a aparecer dentro del botón, por ejemplo "Guardar" o "Cancelar".
+    texto: String,
+    // El color de fondo que quiero que tenga el botón.
+    colorFondo: Color,
+    // El color del texto. Por defecto es blanco, pero puedo cambiarlo si quiero.
+    colorTexto: Color = Color.White,
+    // El 'modifier' es para poder pasarle ajustes desde afuera, como el ancho (fillMaxWidth).
+    modifier: Modifier = Modifier,
+    // La acción que se ejecuta cuando alguien presiona el botón.
+    onClick: () -> Unit
 ) {
-    // Uso el componente Button de Material 3 con colores personalizados
+    // Uso el botón estándar de Material 3, pero le cambio los colores.
     Button(
         onClick = onClick,
         modifier = modifier,
         colors = ButtonDefaults.buttonColors(
-            containerColor = colorFondo,  // Color de fondo
-            contentColor = colorTexto     // Color del texto
+            // Aquí le aplico los colores que le pasé a la función.
+            containerColor = colorFondo,
+            contentColor = colorTexto
         )
     ) {
-        // Muestro el texto dentro del botón
+        // Pongo el texto que me pasaron dentro del botón.
         Text(texto)
     }
 }

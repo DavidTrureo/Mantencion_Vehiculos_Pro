@@ -22,6 +22,8 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -35,23 +37,28 @@ import com.mantenimientovehiculospro.data.network.RetrofitProvider
 import com.mantenimientovehiculospro.ui.components.AppBackground
 import kotlinx.coroutines.launch
 
+// Esta es la pantalla para que el usuario inicie sesión con su email y contraseña.
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginScreen(
+    // La función que se ejecuta si el login es exitoso, para llevarlo a la siguiente pantalla.
     onLoginSuccess: () -> Unit,
+    // La función para volver a la pantalla de inicio.
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
+    val scope = rememberCoroutineScope() // Para llamar a la API en segundo plano.
+    // El 'snackbar' es para mostrar mensajes emergentes, como "Completa todos los campos".
     val snackbarHostState = remember { SnackbarHostState() }
 
+    // Estados para guardar lo que el usuario escribe en los campos de texto.
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
 
     AppBackground(backgroundImageResId = R.drawable.auto2) {
         Scaffold(
             snackbarHost = { SnackbarHost(snackbarHostState) },
-            containerColor = Color.Transparent,
+            containerColor = Color.Transparent, // Para que se vea la imagen de fondo.
             modifier = Modifier.fillMaxSize()
         ) { padding ->
             Box(
@@ -59,6 +66,7 @@ fun LoginScreen(
                     .fillMaxSize()
                     .padding(padding)
             ) {
+                // El botón de flecha para volver a la pantalla anterior.
                 IconButton(
                     onClick = onBack,
                     modifier = Modifier
@@ -72,6 +80,7 @@ fun LoginScreen(
                     )
                 }
 
+                // La columna principal con el formulario, centrado en la pantalla.
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -86,24 +95,25 @@ fun LoginScreen(
                     )
                     Spacer(modifier = Modifier.height(32.dp))
 
-                    // ✅ CAMPO DE TEXTO SIMPLIFICADO (SIN COLORES PERSONALIZADOS)
+                    // Campo de texto para el correo electrónico.
                     OutlinedTextField(
                         value = email,
                         onValueChange = { email = it },
                         label = { Text("Correo electrónico") },
                         placeholder = { Text("ejemplo@correo.com") },
                         modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
+                        singleLine = true // Para que el teclado no muestre el botón "Enter" de varias líneas.
                     )
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // ✅ CAMPO DE TEXTO SIMPLIFICADO (SIN COLORES PERSONALIZADOS)
+                    // Campo de texto para la contraseña.
                     OutlinedTextField(
                         value = password,
                         onValueChange = { password = it },
                         label = { Text("Contraseña") },
                         placeholder = { Text("••••••••") },
+                        // Esto hace que se vean puntitos en lugar de las letras de la contraseña.
                         visualTransformation = PasswordVisualTransformation(),
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true
@@ -111,22 +121,33 @@ fun LoginScreen(
 
                     Spacer(modifier = Modifier.height(24.dp))
 
+                    // El botón para intentar iniciar sesión.
                     Button(
                         onClick = {
+                            // Inicio una corrutina para hacer la llamada a la API sin bloquear la pantalla.
                             scope.launch {
+                                // Primero, valido que los campos no estén vacíos.
                                 if (email.isBlank() || password.isBlank()) {
                                     snackbarHostState.showSnackbar("Completa todos los campos")
-                                    return@launch
+                                    return@launch // Salgo de la corrutina si faltan datos.
                                 }
                                 try {
+                                    // Creo un objeto Usuario con los datos para enviarlo a la API.
                                     val usuario = Usuario(email = email, password = password)
+                                    // ¡Llamo a la API para hacer login!
                                     val respuesta = RetrofitProvider.instance.login(usuario)
+
+                                    // Si la API me devuelve un ID...
                                     respuesta.id?.let {
+                                        // ...lo guardo en el teléfono para no tener que pedirlo de nuevo.
                                         UsuarioPreferences.guardarUsuarioId(context, it)
+                                        // Y ejecuto la función para ir a la siguiente pantalla.
                                         onLoginSuccess()
                                     } ?: snackbarHostState.showSnackbar("Error: ID de usuario no recibido")
+
                                 } catch (e: Exception) {
-                                    snackbarHostState.showSnackbar("Credenciales inválidas o usuario no existe")
+                                    // Si la API me da un error (ej: contraseña incorrecta), muestro un mensaje.
+                                    snackbarHostState.showSnackbar("Credenciales inválidas o el usuario no existe")
                                 }
                             }
                         },
@@ -135,6 +156,7 @@ fun LoginScreen(
                         Text("INGRESAR")
                     }
 
+                    // Un botón de texto para volver a la pantalla anterior.
                     TextButton(
                         onClick = onBack,
                         modifier = Modifier.fillMaxWidth()

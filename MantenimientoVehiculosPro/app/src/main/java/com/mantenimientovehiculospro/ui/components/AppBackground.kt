@@ -11,36 +11,38 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 
-/**
- * Un componente reutilizable que muestra una imagen de fondo con una capa oscura
- * semi-transparente para mejorar la legibilidad del contenido que va por encima.
- *
- * @param backgroundImageResId El ID del recurso drawable para la imagen de fondo.
- * @param content El contenido que se mostrará sobre el fondo.
- */
+// Este es un Composable que armé para no repetir código.
+// Lo uso en todas las pantallas para poner la misma imagen de fondo
+// con un efecto oscuro que hace que el texto se lea bien.
 @Composable
 fun AppBackground(
+    // Aquí le paso el ID de la imagen que quiero de fondo (ej: R.drawable.auto4).
     @DrawableRes backgroundImageResId: Int,
+    // Y aquí le paso todo el contenido de la pantalla (el Scaffold, los botones, etc.).
     content: @Composable () -> Unit
 ) {
+    // Uso un Box para poder poner cosas una encima de la otra, como capas.
     Box(modifier = Modifier.fillMaxSize()) {
-        // 1. La imagen de fondo, que se expande para cubrir todo el espacio.
+
+        // Capa 1 (la de más abajo): La imagen de fondo.
         Image(
             painter = painterResource(id = backgroundImageResId),
-            contentDescription = "Imagen de fondo",
-            contentScale = ContentScale.Crop, // Crop para evitar deformaciones
+            contentDescription = "Imagen de fondo de la app",
+            // ContentScale.Crop hace que la imagen ocupe todo el espacio sin deformarse,
+            // aunque se recorte un poco por los lados.
+            contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize()
         )
 
-        // 2. La capa oscura (scrim) que va encima de la imagen para oscurecerla.
-        // Esto es CRUCIAL para la legibilidad del texto.
+        // Capa 2 (en el medio): Un velo oscuro semitransparente.
+        // Esto es clave para que las letras blancas se puedan leer encima de la foto.
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background.copy(alpha = 0.75f))
         )
 
-        // 3. El contenido real de la pantalla, que se coloca encima de todo.
+        // Capa 3 (la de más arriba): El contenido de la pantalla que le pasé.
         content()
     }
 }

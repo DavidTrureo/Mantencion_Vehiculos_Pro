@@ -11,44 +11,49 @@ import com.mantenimientovehiculospro.util.calcularEstadoMantencion
 import com.mantenimientovehiculospro.util.calcularProgresoMantencion
 import com.mantenimientovehiculospro.util.formatearFechaVisual
 
-// Este componente muestra la información de un mantenimiento en forma de tarjeta (Card).
-// Incluye datos como tipo, fecha, kilometraje, estado y progreso.
-// También cambia de color según el estado del mantenimiento.
+// Este Composable es una "tarjeta" para mostrar el resumen de un mantenimiento.
+// Es reutilizable, así que puedo usarlo en varias pantallas para mostrar
+// la información de forma consistente.
 @Composable
 fun MantencionCard(
-    mantenimiento: Mantenimiento,   // Objeto con los datos del mantenimiento
-    kilometrajeActual: Int          // Kilometraje actual del vehículo, usado para calcular estado y progreso
+    // El objeto del mantenimiento que quiero mostrar, con todos sus datos.
+    mantenimiento: Mantenimiento,
+    // El kilometraje actual del auto. Lo necesito para calcular si el
+    // mantenimiento está próximo, atrasado o ya se hizo.
+    kilometrajeActual: Int
 ) {
-    // Calculo el estado del mantenimiento (REALIZADO, PRÓXIMO o ATRASADO)
+    // Aquí llamo a una función que calcula el estado del mantenimiento.
+    // Le paso los kilómetros y me devuelve si está REALIZADO, PROXIMO o ATRASADO.
     val estado = calcularEstadoMantencion(
         kilometrajeActual = kilometrajeActual,
         kilometrajeMantencion = mantenimiento.kilometraje,
         descripcion = mantenimiento.descripcion
     )
 
-    // Calculo el progreso del mantenimiento en base al kilometraje
+    // Esta otra función calcula un porcentaje (de 0.0 a 1.0) para la barra de progreso.
     val progreso = calcularProgresoMantencion(
         kilometrajeActual = kilometrajeActual,
         kilometrajeMantencion = mantenimiento.kilometraje,
         descripcion = mantenimiento.descripcion
     )
 
-    // Defino el color de la tarjeta según el estado del mantenimiento
+    // Dependiendo del estado, elijo un color para la tarjeta y la barra de progreso.
     val color = when (estado) {
-        EstadoMantenimiento.REALIZADO -> MaterialTheme.colorScheme.primary
-        EstadoMantenimiento.PROXIMO -> MaterialTheme.colorScheme.secondary
-        EstadoMantenimiento.ATRASADO -> MaterialTheme.colorScheme.error
+        EstadoMantenimiento.REALIZADO -> MaterialTheme.colorScheme.primary // Verde/Azul
+        EstadoMantenimiento.PROXIMO -> MaterialTheme.colorScheme.secondary // Amarillo/Naranja
+        EstadoMantenimiento.ATRASADO -> MaterialTheme.colorScheme.error   // Rojo
     }
 
-    // Card que contiene toda la información del mantenimiento
+    // Esta es la tarjeta (Card) que se ve en la pantalla.
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 8.dp),
-        colors = CardDefaults.cardColors(containerColor = color.copy(alpha = 0.1f)) // Fondo con transparencia
+        // Le pongo un color de fondo semitransparente para que se vea bien.
+        colors = CardDefaults.cardColors(containerColor = color.copy(alpha = 0.1f))
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            // Información principal del mantenimiento
+            // Muestro la información principal del mantenimiento.
             Text("Tipo: ${mantenimiento.tipo}", style = MaterialTheme.typography.titleSmall)
             Text("Fecha: ${mantenimiento.fecha?.formatearFechaVisual() ?: "Sin fecha"}")
             Text("Km realizado: ${mantenimiento.kilometraje} km")
@@ -56,16 +61,17 @@ fun MantencionCard(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Barra de progreso que indica cuánto falta para el mantenimiento
+            // La barra de progreso que se va llenando.
             LinearProgressIndicator(
-                progress = { progreso },
+                progress = { progreso }, // Le paso el progreso calculado antes.
                 modifier = Modifier.fillMaxWidth(),
-                color = color,
+                color = color, // Le pongo el color que elegí según el estado.
                 trackColor = MaterialTheme.colorScheme.surfaceVariant
             )
+            // Muestro el progreso en formato de porcentaje (ej: 85%).
             Text("Progreso: ${(progreso * 100).toInt()}%", style = MaterialTheme.typography.bodySmall)
 
-            // Si hay una descripción, la muestro debajo
+            // Si el mantenimiento tiene una descripción, la muestro. Si no, no muestro nada.
             if (mantenimiento.descripcion.isNotBlank()) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Text("Descripción: ${mantenimiento.descripcion}", style = MaterialTheme.typography.bodySmall)

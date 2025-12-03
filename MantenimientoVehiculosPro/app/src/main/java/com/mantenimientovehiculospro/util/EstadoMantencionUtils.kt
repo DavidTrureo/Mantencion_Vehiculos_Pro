@@ -2,58 +2,73 @@ package com.mantenimientovehiculospro.util
 
 import com.mantenimientovehiculospro.data.model.EstadoMantenimiento
 
-// === Función para calcular el estado de un mantenimiento ===
-// Determina si un mantenimiento está REALIZADO, PRÓXIMO o ATRASADO
-// en base al kilometraje actual del vehículo, el kilometraje en que se realizó
-// y la descripción que contiene el rango de kilometraje recomendado.
+// Este archivo tiene funciones de cálculo para la lógica de los mantenimientos.
+// Me ayuda a mantener el código más ordenado, separando los cálculos de las pantallas.
+
+// --- Función para calcular el estado de un mantenimiento ---
+/**
+ * Esta función es la que decide si un mantenimiento está `REALIZADO`, `PROXIMO` o `ATRASADO`.
+ * Para hacerlo, se basa en una descripción que debe tener un formato como "Cada 5000 - 10000 km".
+ */
 fun calcularEstadoMantencion(
-    kilometrajeActual: Int,       // Kilometraje actual del vehículo
-    kilometrajeMantencion: Int,   // Kilometraje en que se realizó el mantenimiento
-    descripcion: String           // Texto con el rango de mantenimiento (ej: "Cada 5000 - 10000 km")
+    kilometrajeActual: Int,     // El kilometraje que tiene el auto ahora.
+    kilometrajeMantencion: Int, // El kilometraje en el que se hizo este mantenimiento.
+    descripcion: String         // El texto de donde saco el rango de km.
 ): EstadoMantenimiento {
-    // Expresión regular para extraer el rango de kilometraje desde la descripción
-    val regex = Regex("""Cada (\d{1,6})\s*-\s*(\d{1,6}) km""")
+    // Esto es una "expresión regular" (regex). Es un mini-lenguaje para buscar patrones en texto.
+    // Aquí busco el patrón "Cada [un número] - [otro número] km".
+    val regex = Regex("""Cada (\d{1,6})\s*-\s*(\d{1-6}) km""")
+    // Intento encontrar ese patrón en la descripción.
     val match = regex.find(descripcion)
 
-    // Obtengo los valores mínimo y máximo del rango
+    // Si lo encuentro, saco el primer número (minKm) y el segundo (maxKm).
     val minKm = match?.groups?.get(1)?.value?.toIntOrNull()
     val maxKm = match?.groups?.get(2)?.value?.toIntOrNull()
 
-    // Si no se pudo extraer el rango, asumo que el mantenimiento ya está realizado
+    // Si la descripción no tiene el formato correcto (ej: "Se cambió y listo"),
+    // no puedo calcular nada, así que asumo que está REALIZADO y no necesita seguimiento.
     if (minKm == null || maxKm == null) return EstadoMantenimiento.REALIZADO
 
-    // Diferencia entre el kilometraje actual y el kilometraje del mantenimiento
+    // Calculo cuántos kilómetros han pasado desde que se hizo este mantenimiento.
     val diferencia = kilometrajeActual - kilometrajeMantencion
 
-    // Clasifico el estado según la diferencia
+    // Ahora, clasifico el estado:
     return when {
-        diferencia < minKm -> EstadoMantenimiento.REALIZADO   // Aún dentro del rango inicial
-        diferencia in minKm..maxKm -> EstadoMantenimiento.PROXIMO // Está próximo a necesitarse
-        else -> EstadoMantenimiento.ATRASADO                  // Ya pasó el rango recomendado
+        // Si la diferencia es menor que el rango mínimo, todavía no entra en la "zona de peligro".
+        diferencia < minKm -> EstadoMantenimiento.REALIZADO
+        // Si la diferencia está dentro del rango, es hora de empezar a preocuparse.
+        diferencia in minKm..maxKm -> EstadoMantenimiento.PROXIMO
+        // Si ya pasé el rango máximo, ¡estoy atrasado!
+        else -> EstadoMantenimiento.ATRASADO
     }
 }
 
-// === Función para calcular el progreso de un mantenimiento ===
-// Devuelve un valor entre 0 y 1 que representa cuánto se ha avanzado
-// hacia el próximo mantenimiento, en base al kilometraje.
+// --- Función para calcular el progreso de un mantenimiento ---
+/**
+ * Esta función calcula un porcentaje (de 0.0 a 1.0) para la barra de progreso.
+ * 0.0 significa que recién se hizo el mantenimiento.
+ * 1.0 significa que ya llegué (o pasé) el kilometraje máximo recomendado.
+ */
 fun calcularProgresoMantencion(
-    kilometrajeActual: Int,       // Kilometraje actual del vehículo
-    kilometrajeMantencion: Int,   // Kilometraje en que se realizó el mantenimiento
-    descripcion: String           // Texto con el rango de mantenimiento
+    kilometrajeActual: Int,
+    kilometrajeMantencion: Int,
+    descripcion: String
 ): Float {
-    // Expresión regular para extraer el rango de kilometraje
+    // Uso la misma expresión regular de antes.
     val regex = Regex("""Cada (\d{1,6})\s*-\s*(\d{1,6}) km""")
     val match = regex.find(descripcion)
 
-    // Obtengo el valor máximo del rango (si no existe, retorno 0f)
+    // Para la barra de progreso, solo me interesa el límite máximo del rango.
+    // Si no lo encuentro, no puedo calcular el progreso, así que devuelvo 0.
     val maxKm = match?.groups?.get(2)?.value?.toIntOrNull() ?: return 0f
 
-    // Calculo la diferencia de kilometraje
+    // Calculo cuántos kilómetros han pasado.
     val diferencia = kilometrajeActual - kilometrajeMantencion
 
-    // Progreso = diferencia / rango máximo
+    // Hago una regla de tres simple: (km recorridos) / (km totales del rango).
     val progreso = diferencia.toFloat() / maxKm.toFloat()
 
-    // Uso coerceIn para asegurar que el valor esté entre 0 y 1
+    // Me aseguro de que el resultado siempre esté entre 0.0 y 1.0.
+    // Si me paso de `maxKm`, el progreso será 1.0 (100%), no más.
     return progreso.coerceIn(0f, 1f)
 }

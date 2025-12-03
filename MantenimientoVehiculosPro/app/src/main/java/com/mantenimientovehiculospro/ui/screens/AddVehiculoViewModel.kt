@@ -11,32 +11,35 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import retrofit2.HttpException
 
-// === Estado de la UI ===
-// Esta data class representa el estado de la pantalla "Añadir Vehículo".
-// Contiene los campos del formulario, un flag para saber si se guardó el vehículo
-// y un mensaje opcional para mostrar errores o confirmaciones.
+// Esta es una "plantilla" que guarda todos los datos de la pantalla de añadir vehículo.
+// La uso para tener en un solo lugar la información que el usuario escribe,
+// si el vehículo ya se guardó, o si hay algún mensaje de error que mostrar.
 data class AddVehiculoUiState(
     val marca: String = "",
     val modelo: String = "",
     val anio: String = "",
     val kilometraje: String = "",
-    val vehiculoGuardado: Boolean = false,
-    val mensaje: String? = null
+    val vehiculoGuardado: Boolean = false, // Lo pongo en 'true' cuando se guarda bien.
+    val mensaje: String? = null // Para mostrar errores o avisos.
 )
 
-// === ViewModel ===
-// Maneja la lógica de la pantalla "Añadir Vehículo".
-// Extiende de AndroidViewModel porque necesita acceso al contexto de la aplicación
-// (para leer las preferencias del usuario).
+// Este es el ViewModel. Es el que piensa y hace todo el trabajo pesado.
+// La pantalla (la View) solo se preocupa de mostrar los datos que el ViewModel le da
+// y de avisarle cuando el usuario hace algo (como escribir o presionar un botón).
+// Uso AndroidViewModel porque necesito el 'context' para leer el ID del usuario guardado.
 class AddVehiculoViewModel(application: Application) : AndroidViewModel(application) {
 
-    // Estado interno mutable (privado)
+    // '_uiState' es el estado "privado" y "editable". Solo el ViewModel puede cambiarlo.
+    // Lo inicializo con un estado vacío.
     private val _uiState = MutableStateFlow(AddVehiculoUiState())
 
-    // Estado expuesto a la UI como flujo inmutable
+    // 'uiState' es la versión "pública" y de "solo lectura" del estado.
+    // La pantalla "escucha" los cambios de aquí para redibujarse, pero no puede modificarlo directamente.
     val uiState: StateFlow<AddVehiculoUiState> = _uiState
 
-    // === Funciones para actualizar los campos del formulario ===
+    // --- Funciones que la pantalla llama cuando el usuario escribe algo ---
+    // Cada vez que cambia el texto en un campo, actualizo el estado.
+    // El .copy() crea un nuevo estado con solo el valor que cambió, manteniendo los demás.
     fun onMarcaChange(value: String) {
         _uiState.value = _uiState.value.copy(marca = value)
     }
@@ -46,6 +49,8 @@ class AddVehiculoViewModel(application: Application) : AndroidViewModel(applicat
     }
 
     fun onAnioChange(value: String) {
+        // Ojo: Guardo el año y el km como String para que el usuario pueda escribir,
+        // luego los convierto a número antes de guardarlos.
         _uiState.value = _uiState.value.copy(anio = value)
     }
 
@@ -53,60 +58,55 @@ class AddVehiculoViewModel(application: Application) : AndroidViewModel(applicat
         _uiState.value = _uiState.value.copy(kilometraje = value)
     }
 
-    // === Guardar vehículo ===
-    // Esta función valida los datos ingresados y llama al backend para guardar el vehículo.
+    // --- La función principal: Guardar el Vehículo ---
     fun guardarVehiculo() {
-        val context = getApplication<Application>().applicationContext
-
+        // Uso viewModelScope.launch para hacer operaciones en segundo plano,
+        // como llamar a la API, sin bloquear la pantalla de la app.
         viewModelScope.launch {
-            // Obtengo el ID del usuario desde DataStore
-            val usuarioId = UsuarioPreferences.obtenerUsuarioId(context)
+            // Primero, necesito saber qué usuario está guardando el vehículo.
+            val usuarioId = UsuarioPreferences.obtenerUsuarioId(getApplication())
             if (usuarioId == null) {
-                _uiState.value = _uiState.value.copy(mensaje = "No se pudo obtener el usuario")
+                _uiState.value = _uiState.value.copy(mensaje = "Error: No se encontró el usuario. Intenta iniciar sesión de nuevo.")
                 return@launch
             }
 
-            // Obtengo el estado actual del formulario
-            val estado = _uiState.value
-            val marca = estado.marca.trim()
-            val modelo = estado.modelo.trim()
-            val anio = estado.anio.toIntOrNull()
-            val kilometraje = estado.kilometraje.toIntOrNull()
+            // Agarro los datos actuales del formulario.
+            val estadoActual = _uiState.value
+            val marca = estadoActual.marca.trim() // .trim() para quitar espacios en blanco al inicio y final.
+            val modelo = estadoActual.modelo.trim()
+            val anio = estadoActual.anio.toIntOrNull() // Intento convertir el texto a número. Si no se puede, da null.
+            val kilometraje = estadoActual.kilometraje.toIntOrNull()
 
-            // Validación de campos
+            // Valido que todos los campos estén llenos y correctos.
             if (marca.isEmpty() || modelo.isEmpty() || anio == null || kilometraje == null) {
-                _uiState.value = estado.copy(mensaje = "Completa todos los campos correctamente")
+                _uiState.value = estadoActual.copy(mensaje = "Error: Por favor, completa todos los campos.")
                 return@launch
             }
 
-            // Creo el objeto Vehiculo listo para enviar al backend
-            val vehiculo = Vehiculo(
+            // Si todo está bien, creo el objeto Vehiculo que le voy a mandar a la API.
+            val vehiculoParaEnviar = Vehiculo(
                 marca = marca,
                 modelo = modelo,
                 anio = anio,
                 kilometraje = kilometraje,
-                propietarioId = usuarioId
+                propietarioId = usuarioId // Le asigno el ID del dueño.
             )
 
             try {
-                // Llamo al endpoint para crear el vehículo
-                RetrofitProvider.instance.crearVehiculo(usuarioId, vehiculo)
+                // ¡Llamo a la API para crear el vehículo!
+                RetrofitProvider.instance.crearVehiculo(usuarioId, vehiculoParaEnviar)
 
-                // Actualizo el estado indicando éxito
-                _uiState.value = estado.copy(
+                // Si la llamada a la API no lanzó un error, todo salió bien.
+                // Actualizo el estado para avisarle a la pantalla que ya se guardó.
+                _uiState.value = estadoActual.copy(
                     vehiculoGuardado = true,
-                    mensaje = null
-                )
-            } catch (e: HttpException) {
-                // Manejo de errores HTTP (ej: 400, 500)
-                val errorBody = e.response()?.errorBody()?.string()
-                _uiState.value = estado.copy(
-                    mensaje = "Error ${e.code()}: ${errorBody ?: e.message()}"
+                    mensaje = null // Limpio cualquier mensaje de error anterior.
                 )
             } catch (e: Exception) {
-                // Manejo de errores inesperados (ej: sin conexión)
-                _uiState.value = estado.copy(
-                    mensaje = "Error inesperado: ${e.message}"
+                // Si algo sale mal (no hay internet, el servidor está caído, etc.),
+                // actualizo el estado con un mensaje de error para que lo vea el usuario.
+                _uiState.value = estadoActual.copy(
+                    mensaje = "Error al guardar el vehículo: ${e.message}"
                 )
             }
         }

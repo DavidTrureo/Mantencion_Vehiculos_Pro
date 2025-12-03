@@ -22,6 +22,8 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -35,16 +37,21 @@ import com.mantenimientovehiculospro.data.network.RetrofitProvider
 import com.mantenimientovehiculospro.ui.components.AppBackground
 import kotlinx.coroutines.launch
 
+// Esta es la pantalla para que un usuario nuevo pueda crear su cuenta.
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RegistroScreen(
+    // La función que se ejecuta si el registro sale bien, para llevarlo a la app.
     onRegistroExitoso: () -> Unit,
+    // La función para volver a la pantalla de inicio.
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
+    val scope = rememberCoroutineScope() // Para llamar a la API.
+    // Para mostrar mensajes flotantes de error o éxito.
     val snackbarHostState = remember { SnackbarHostState() }
 
+    // Estados para guardar lo que el usuario escribe.
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
 
@@ -59,6 +66,7 @@ fun RegistroScreen(
                     .fillMaxSize()
                     .padding(padding)
             ) {
+                // El botón de flecha para volver a la pantalla anterior.
                 IconButton(
                     onClick = onBack,
                     modifier = Modifier
@@ -72,6 +80,7 @@ fun RegistroScreen(
                     )
                 }
 
+                // La columna con el formulario, centrado en la pantalla.
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -86,7 +95,7 @@ fun RegistroScreen(
                     )
                     Spacer(modifier = Modifier.height(32.dp))
 
-                    // ✅ SIN COLORES PERSONALIZADOS PARA GARANTIZAR LA COMPILACIÓN
+                    // Campo de texto para el correo.
                     OutlinedTextField(
                         value = email,
                         onValueChange = { email = it },
@@ -98,12 +107,13 @@ fun RegistroScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // ✅ SIN COLORES PERSONALIZADOS PARA GARANTIZAR LA COMPILACIÓN
+                    // Campo de texto para la contraseña.
                     OutlinedTextField(
                         value = password,
                         onValueChange = { password = it },
                         label = { Text("Contraseña") },
                         placeholder = { Text("Crea una contraseña segura") },
+                        // Esto hace que la contraseña se vea como puntitos.
                         visualTransformation = PasswordVisualTransformation(),
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true
@@ -111,24 +121,33 @@ fun RegistroScreen(
 
                     Spacer(modifier = Modifier.height(24.dp))
 
+                    // El botón para intentar registrar al usuario.
                     Button(
                         onClick = {
                             scope.launch {
+                                // Valido que no haya campos vacíos.
                                 if (email.isBlank() || password.isBlank()) {
                                     snackbarHostState.showSnackbar("Completa todos los campos")
                                     return@launch
                                 }
                                 try {
+                                    // Creo el objeto Usuario con los datos del formulario.
                                     val usuario = Usuario(email = email, password = password)
+                                    // ¡Llamo a la API para registrar al usuario!
                                     val respuesta = RetrofitProvider.instance.registrar(usuario)
+
+                                    // Si la API me devuelve un ID de usuario...
                                     if (respuesta.id != null) {
+                                        // ...lo guardo en el teléfono.
                                         UsuarioPreferences.guardarUsuarioId(context, respuesta.id)
-                                        snackbarHostState.showSnackbar("Registro exitoso")
+                                        snackbarHostState.showSnackbar("¡Registro exitoso!")
+                                        // Y lo llevo a la pantalla principal de la app.
                                         onRegistroExitoso()
                                     } else {
-                                        snackbarHostState.showSnackbar("Error: ID no recibido")
+                                        snackbarHostState.showSnackbar("Error: El servidor no devolvió un ID.")
                                     }
                                 } catch (e: Exception) {
+                                    // Si algo falla (ej: el email ya existe), muestro un error.
                                     snackbarHostState.showSnackbar("Error al registrar: ${e.message}")
                                 }
                             }
@@ -138,6 +157,7 @@ fun RegistroScreen(
                         Text("REGISTRARSE")
                     }
 
+                    // Botón de texto para volver a la pantalla anterior.
                     TextButton(
                         onClick = onBack,
                         modifier = Modifier.fillMaxWidth()

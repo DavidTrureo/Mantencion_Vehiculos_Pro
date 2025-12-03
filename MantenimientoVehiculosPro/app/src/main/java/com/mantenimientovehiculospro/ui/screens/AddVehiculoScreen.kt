@@ -30,27 +30,41 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mantenimientovehiculospro.R
 import com.mantenimientovehiculospro.ui.components.AppBackground
 
+// Esta es la pantalla del formulario para añadir un vehículo nuevo.
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddVehiculoScreen(
+    // La función que se ejecuta cuando el vehículo se guarda bien, para volver atrás.
     onVehiculoGuardado: () -> Unit,
+    // La función para cuando se presiona la flecha de "volver".
     onBack: () -> Unit,
+    // Aquí inyecto el ViewModel, que es el que tiene toda la lógica.
+    // El `viewModel()` se encarga de dármelo o crearlo si no existe.
     viewModel: AddVehiculoViewModel = viewModel()
 ) {
+    // Aquí "escucho" el estado de la UI que viene del ViewModel.
+    // 'state' tiene todos los datos (marca, modelo, etc.) y va a cambiar
+    // cada vez que el ViewModel lo actualice.
     val state by viewModel.uiState.collectAsState()
 
+    // Este 'LaunchedEffect' está pendiente de si 'state.vehiculoGuardado' cambia a 'true'.
+    // Si cambia, significa que el ViewModel guardó el auto con éxito.
     LaunchedEffect(state.vehiculoGuardado) {
         if (state.vehiculoGuardado) {
+            // Si se guardó, llamo a la función para volver a la pantalla anterior.
             onVehiculoGuardado()
         }
     }
 
+    // Uso mi fondo personalizado para la pantalla.
     AppBackground(backgroundImageResId = R.drawable.auto2) {
         Scaffold(
+            // Hago el fondo del Scaffold transparente para que se vea la imagen de AppBackground.
             containerColor = Color.Transparent,
             modifier = Modifier.fillMaxSize()
         ) { padding ->
             Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+                // El botón para volver, puesto arriba a la izquierda.
                 IconButton(
                     onClick = onBack,
                     modifier = Modifier.align(Alignment.TopStart).padding(8.dp)
@@ -62,6 +76,7 @@ fun AddVehiculoScreen(
                     )
                 }
 
+                // La columna principal con el formulario, centrado en la pantalla.
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -76,7 +91,11 @@ fun AddVehiculoScreen(
                     )
                     Spacer(modifier = Modifier.height(32.dp))
 
-                    // ✅ Campos de texto SIN colores personalizados para GARANTIZAR la compilación
+                    // --- CAMPOS DEL FORMULARIO ---
+                    // Cada campo de texto está conectado al ViewModel.
+                    // 'value' lee el dato desde el 'state'.
+                    // 'onValueChange' llama a una función del ViewModel cada vez que escribo algo.
+
                     OutlinedTextField(
                         value = state.marca,
                         onValueChange = viewModel::onMarcaChange,
@@ -116,8 +135,9 @@ fun AddVehiculoScreen(
 
                     Spacer(modifier = Modifier.height(24.dp))
 
-                    // ✅ CORREGIDO: Lógica de error basada en el contenido del `mensaje`
+                    // Aquí muestro los mensajes que me manda el ViewModel (errores o avisos).
                     state.mensaje?.let {
+                        // Reviso si el mensaje es de error para pintarlo en rojo.
                         val esError = it.contains("Error", ignoreCase = true) || it.contains("campos", ignoreCase = true)
                         val color = if (esError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onBackground
                         Text(
@@ -128,6 +148,7 @@ fun AddVehiculoScreen(
                         Spacer(modifier = Modifier.height(8.dp))
                     }
 
+                    // El botón para guardar el vehículo.
                     Button(
                         onClick = { viewModel.guardarVehiculo() },
                         modifier = Modifier.fillMaxWidth()

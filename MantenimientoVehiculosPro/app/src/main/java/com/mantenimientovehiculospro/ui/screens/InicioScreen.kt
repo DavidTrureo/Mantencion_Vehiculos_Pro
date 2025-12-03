@@ -14,36 +14,44 @@ import androidx.compose.ui.unit.dp
 import com.mantenimientovehiculospro.R
 import com.mantenimientovehiculospro.ui.components.AppBackground
 
+// Esta es la pantalla de inicio, la primera que se ve al abrir la app.
+// Desde aquí el usuario puede elegir si quiere iniciar sesión o registrarse.
 @Composable
 fun InicioScreen(
+    // La función que se va a ejecutar cuando el usuario presione "INICIAR SESIÓN".
     onLoginClick: () -> Unit,
+    // La función que se va a ejecutar cuando el usuario presione "REGISTRARSE".
     onRegisterClick: () -> Unit
 ) {
-    // ✅ Usamos nuestro nuevo componente de fondo y le pasamos la imagen que has añadido.
+    // Uso mi componente de fondo personalizado, pasándole la imagen que quiero.
     AppBackground(backgroundImageResId = R.drawable.auto1) {
-        // Box para centrar el contenido en la pantalla
+
+        // Uso un Box para poder centrar todo el contenido en medio de la pantalla.
         Box(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
+            // Una columna para apilar los elementos uno debajo del otro.
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(24.dp),
                 modifier = Modifier.padding(horizontal = 24.dp)
             ) {
-                // ✅ Ícono con el color de acento para que resalte
+                // El ícono principal de la aplicación.
                 Icon(
                     imageVector = Icons.Filled.DirectionsCar,
                     contentDescription = "Ícono de la app",
-                    tint = MaterialTheme.colorScheme.primary, // Usará AmberAccent en tema oscuro
+                    // Le pongo el color primario del tema para que resalte.
+                    tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(96.dp)
                 )
 
-                // ✅ Texto con el color correcto para ser legible sobre fondo oscuro
+                // El título de la aplicación.
                 Text(
                     text = "Mantenimiento Vehículos Pro",
                     style = MaterialTheme.typography.headlineMedium,
-                    color = MaterialTheme.colorScheme.onBackground // Usará TextWhite en tema oscuro
+                    // Uso el color 'onBackground' para que se vea bien sobre el fondo oscuro.
+                    color = MaterialTheme.colorScheme.onBackground
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -54,14 +62,15 @@ fun InicioScreen(
                     color = MaterialTheme.colorScheme.onBackground
                 )
 
-                // ✅ Los botones ya usan los colores del tema (AmberAccent), así que no necesitan cambios.
+                // El botón para ir a la pantalla de Login.
                 Button(
                     onClick = onLoginClick,
-                    modifier = Modifier.fillMaxWidth(0.8f)
+                    modifier = Modifier.fillMaxWidth(0.8f) // Que ocupe el 80% del ancho.
                 ) {
                     Text("INICIAR SESIÓN")
                 }
 
+                // El botón para ir a la pantalla de Registro.
                 Button(
                     onClick = onRegisterClick,
                     modifier = Modifier.fillMaxWidth(0.8f)

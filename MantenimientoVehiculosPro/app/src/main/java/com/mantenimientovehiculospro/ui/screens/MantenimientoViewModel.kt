@@ -9,51 +9,53 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
-// === Estado de la UI ===
-// Representa el estado de la pantalla de mantenimientos.
-// Incluye:
-// - isLoading: indica si se están cargando los datos
-// - lista: lista de mantenimientos obtenidos del backend
-// - error: mensaje de error en caso de fallo
+// Esta es la "plantilla" que guarda toda la información que necesita la pantalla de mantenimientos.
+// La uso para saber si está cargando, para guardar la lista de mantenimientos o si hubo un error.
 data class MantenimientoUiState(
-    val isLoading: Boolean = false,
-    val lista: List<Mantenimiento> = emptyList(),
-    val error: String? = null
+    val isLoading: Boolean = false,              // Para saber si muestro el circulito de "cargando".
+    val lista: List<Mantenimiento> = emptyList(), // Aquí guardo la lista de mantenimientos que me da la API.
+    val error: String? = null                      // Si algo falla, aquí pongo el mensaje de error.
 )
 
-// === ViewModel ===
-// Maneja la lógica de negocio y el estado de la pantalla de mantenimientos.
-// Extiende de AndroidViewModel porque podría necesitar acceso al contexto de la aplicación.
+// Este es el ViewModel para la pantalla de Mantenimientos.
+// Es el que se encarga de pedir los datos a la API y de manejar el estado de la pantalla.
 class MantenimientoViewModel(application: Application) : AndroidViewModel(application) {
 
-    // Estado interno mutable
+    // '_uiState' es el estado "privado" y "editable" que solo este ViewModel puede tocar.
+    // Lo empiezo con un estado inicial vacío.
     private val _uiState = MutableStateFlow(MantenimientoUiState())
 
-    // Estado expuesto a la UI como flujo inmutable
+    // 'uiState' es la versión "pública" y de "solo lectura".
+    // La pantalla "escucha" los cambios de aquí para saber cuándo tiene que redibujarse.
     val uiState: StateFlow<MantenimientoUiState> = _uiState
 
-    // === Cargar mantenimientos ===
-    // Llama al backend para obtener la lista de mantenimientos de un vehículo específico.
+    // Esta es la función que la pantalla llama para pedir la lista de mantenimientos.
     fun cargarMantenimientos(vehiculoId: Long) {
+        // Uso viewModelScope.launch para hacer la llamada a la API en segundo plano,
+        // así la pantalla no se queda "congelada".
         viewModelScope.launch {
-            // Primero actualizo el estado a "cargando"
+            // 1. Aviso que estoy empezando a cargar. La pantalla mostrará el circulito.
             _uiState.value = MantenimientoUiState(isLoading = true)
+
             try {
-                // Llamo al backend usando Retrofit
+                // 2. Llamo a la API para que me dé la lista de mantenimientos de ese vehículo.
                 val lista = RetrofitProvider.instance.obtenerMantenimientos(vehiculoId)
 
-                // Actualizo el estado con la lista obtenida
+                // 3. Si todo sale bien, actualizo el estado con la lista que recibí.
+                // La pantalla dejará de cargar y mostrará las tarjetas.
                 _uiState.value = MantenimientoUiState(lista = lista)
+
             } catch (e: Exception) {
-                // Si ocurre un error, actualizo el estado con un mensaje de error
-                _uiState.value = MantenimientoUiState(error = "Error al cargar mantenimientos")
+                // 4. Si algo falla (no hay internet, el servidor no responde, etc.),
+                // actualizo el estado con un mensaje de error.
+                _uiState.value = MantenimientoUiState(error = "No se pudieron cargar los mantenimientos.")
             }
         }
     }
 
-    // === Limpiar error ===
-    // Permite resetear el mensaje de error para que la UI no lo siga mostrando.
+    // Una función por si necesito limpiar el mensaje de error desde la pantalla.
     fun limpiarError() {
+        // Creo una copia del estado actual, pero con el error en 'null'.
         _uiState.value = _uiState.value.copy(error = null)
     }
 }
