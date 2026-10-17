@@ -1,0 +1,11 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      // Lectura pública permitida para visualización de evidencias vehiculares
+      allow read: if true;
+      // Escritura pública deshabilitada: Solo el backend autenticado vía Firebase Admin SDK puede subir/modificar archivos
+      allow write: if false;
+    }
+  }
+}

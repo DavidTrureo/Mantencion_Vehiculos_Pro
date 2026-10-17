@@ -1,0 +1,13 @@
+.DS_Store
+*/.DS_Store
+*serviceAccountKey*.json
+*.backup
+*.pem
+*.key
+node_modules/
+dist/
+*.env
+*.env.*
+env.yaml
+target/
+*.apk

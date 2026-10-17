@@ -1,0 +1,8 @@
+.git/
+.gitignore
+target/
+serviceAccountKey*.json
+*.backup
+*.md
+.DS_Store
+env.yaml
