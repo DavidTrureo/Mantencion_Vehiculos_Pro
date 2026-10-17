@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: vehiculospro-api
+    runtime: docker
+    rootDir: vehiculospro-api
+    plan: free
+    region: ohio
+    healthCheckPath: /api/auth/health
+    envVars:
+      - key: DB_URL
+        sync: false
+      - key: DB_USERNAME
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: CORS_ALLOWED_ORIGINS
+        value: http://localhost:5173,http://localhost:3000,capacitor://localhost,https://mantenimiento-vehiculos-pro.web.app,https://mantenimiento-vehiculos-pro.firebaseapp.com
