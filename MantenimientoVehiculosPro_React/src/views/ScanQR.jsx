@@ -177,33 +177,76 @@ const ScanQR = () => {
     }
   }, [user?.id, user?.fullName]);
 
-  // Cargar una lista de códigos rápidos para facilitar la demostración y sincronizar turno activo
-  useEffect(() => {
-    const fetchVehicleForShift = async (vehId) => {
-      if (!vehId) return;
-      try {
-        const veh = await api.getVehiculoById(vehId);
-        if (veh) {
-          let owner = null;
-          if (veh.propietarioId) {
-            try {
-              owner = await api.getUsuarioById(veh.propietarioId);
-            } catch (_) {}
-          }
-          setResult({ vehicle: veh, owner });
+  const [syncingDocs, setSyncingDocs] = useState(false);
+
+  // Sincronizar vehículo del turno activo o consultado directamente desde la base de datos
+  const fetchVehicleForShift = useCallback(async (vehId, showToastFeedback = false) => {
+    if (!vehId) return;
+    setSyncingDocs(true);
+    try {
+      const veh = await api.getVehiculoById(vehId);
+      if (veh) {
+        let owner = null;
+        if (veh.propietarioId) {
+          try {
+            owner = await api.getUsuarioById(veh.propietarioId);
+          } catch (_) {}
         }
-      } catch (err) {
-        console.warn("No se pudo cargar vehículo del turno activo:", err);
+        setResult(prev => ({
+          ...(prev || {}),
+          vehicle: veh,
+          owner: owner || prev?.owner
+        }));
+        if (showToastFeedback) {
+          setToast({ message: '✨ Documentación legal del vehículo sincronizada al día.', type: 'success' });
+        }
+      }
+    } catch (err) {
+      console.warn("No se pudo cargar vehículo del turno activo:", err);
+      if (showToastFeedback) {
+        setToast({ message: 'No se pudo sincronizar la información del vehículo.', type: 'error' });
+      }
+    } finally {
+      setSyncingDocs(false);
+    }
+  }, []);
+
+  // Auto-sincronización en segundo plano: cada 30s o cuando el conductor vuelve a enfocar la app
+  useEffect(() => {
+    const targetVehId = activeShift?.vehiculoId || result?.vehicle?.id;
+    if (!targetVehId) return;
+
+    // Polling cada 30 segundos
+    const interval = setInterval(() => {
+      fetchVehicleForShift(targetVehId, false);
+    }, 30000);
+
+    // Al volver al primer plano o cambiar de pestaña
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        fetchVehicleForShift(targetVehId, false);
       }
     };
 
+    window.addEventListener('focus', handleVisibility);
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', handleVisibility);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [activeShift?.vehiculoId, result?.vehicle?.id, fetchVehicleForShift]);
+
+  // Cargar una lista de códigos rápidos para facilitar la demostración y sincronizar turno activo
+  useEffect(() => {
     try {
       const saved = localStorage.getItem('vehiculospro_jornada_activa');
       if (saved) {
         const parsed = JSON.parse(saved);
         setActiveShift(parsed);
         if (parsed.vehiculoId) {
-          fetchVehicleForShift(parsed.vehiculoId);
+          fetchVehicleForShift(parsed.vehiculoId, false);
         }
       }
     } catch (e) {}
@@ -240,7 +283,7 @@ const ScanQR = () => {
           });
 
           if (serverTurno.vehiculoId) {
-            fetchVehicleForShift(serverTurno.vehiculoId);
+            fetchVehicleForShift(serverTurno.vehiculoId, false);
           }
         }
       }).catch(() => {});
@@ -992,7 +1035,8 @@ const ScanQR = () => {
     }
     if (!result?.vehicle || !selectedDoc) return;
     try {
-      const v = result.vehicle;
+      const freshVeh = await api.getVehiculoById(result.vehicle.id);
+      const v = freshVeh || result.vehicle;
       const payload = {
         ...v,
         padronImagen: selectedDoc.tipo === 'PADRON' ? newBase64 : v.padronImagen,
@@ -1772,10 +1816,34 @@ const ScanQR = () => {
     
                   {/* Documentación Legal Obligatoria (Chile) */}
                   <div style={{ marginBottom: '1.25rem' }}>
-                    <h4 style={{ fontSize: '0.95rem', marginBottom: '0.4rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-primary)' }}>
-                      <FileCheck size={16} color="var(--primary)" />
-                      Documentación Legal Vehicular (Chile)
-                    </h4>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                      <h4 style={{ fontSize: '0.95rem', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-primary)' }}>
+                        <FileCheck size={16} color="var(--primary)" />
+                        Documentación Legal Vehicular (Chile)
+                      </h4>
+                      <button
+                        type="button"
+                        onClick={() => fetchVehicleForShift(result?.vehicle?.id, true)}
+                        disabled={syncingDocs}
+                        style={{
+                          background: 'rgba(59, 130, 246, 0.1)',
+                          border: '1px solid rgba(59, 130, 246, 0.3)',
+                          color: '#60a5fa',
+                          borderRadius: '6px',
+                          padding: '3px 8px',
+                          fontSize: '0.72rem',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          fontWeight: 600
+                        }}
+                        title="Sincronizar documentación legal con la base de datos"
+                      >
+                        <RefreshCw size={12} style={{ animation: syncingDocs ? 'spin 1s linear infinite' : 'none' }} />
+                        <span>{syncingDocs ? 'Sincronizando...' : 'Actualizar'}</span>
+                      </button>
+                    </div>
                     <DocumentosVehiculoSection 
                       vehiculo={result.vehicle} 
                       onOpenModal={(docData) => setSelectedDoc(docData)} 
@@ -1969,9 +2037,36 @@ const ScanQR = () => {
                   Documentación Legal del Móvil (Chile)
                 </h4>
               </div>
-              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                Disponible para control policial / fiscalización
-              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const vId = activeShift?.vehiculoId || result?.vehicle?.id;
+                    if (vId) fetchVehicleForShift(vId, true);
+                  }}
+                  disabled={syncingDocs}
+                  style={{
+                    background: 'rgba(52, 211, 153, 0.12)',
+                    border: '1px solid rgba(52, 211, 153, 0.35)',
+                    color: '#34d399',
+                    borderRadius: '6px',
+                    padding: '3px 8px',
+                    fontSize: '0.72rem',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    fontWeight: 600
+                  }}
+                  title="Sincronizar certificados y fechas con la base de datos"
+                >
+                  <RefreshCw size={12} style={{ animation: syncingDocs ? 'spin 1s linear infinite' : 'none' }} />
+                  <span>{syncingDocs ? 'Sincronizando...' : 'Actualizar'}</span>
+                </button>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                  Disponible para fiscalización
+                </span>
+              </div>
             </div>
 
             {result?.vehicle ? (
