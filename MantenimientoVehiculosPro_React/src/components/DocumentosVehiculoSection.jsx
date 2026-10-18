@@ -386,16 +386,32 @@ const DocumentosVehiculoSection = ({ vehiculo, onOpenModal }) => {
           return (
             <div 
               key={idx}
+              onClick={() => onOpenModal({
+                titulo: doc.titulo,
+                tipo: doc.tipo,
+                patente: vehiculo.patente,
+                fechaVencimiento: doc.fechaVencimiento,
+                numero: doc.numero,
+                numeroLabel: doc.numeroLabel,
+                emisor: doc.emisor,
+                emisorLabel: doc.emisorLabel,
+                imagen: doc.imagen,
+                estado: st.estado,
+                diasRestantes: st.dias
+              })}
+              title="Toca para ver y ampliar documento"
               style={{
                 backgroundColor: 'rgba(255, 255, 255, 0.02)',
-                border: '1px solid var(--border-color)',
+                border: hasImage ? '1px solid rgba(59, 130, 246, 0.35)' : '1px solid var(--border-color)',
                 borderRadius: 'var(--radius-md)',
                 padding: '0.85rem',
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: 'space-between',
                 position: 'relative',
-                transition: 'all 0.2s ease'
+                transition: 'all 0.2s ease',
+                cursor: 'pointer',
+                boxShadow: hasImage ? '0 4px 14px rgba(0,0,0,0.25)' : 'none'
               }}
             >
               {/* Top row: Name & Badge */}
@@ -416,6 +432,43 @@ const DocumentosVehiculoSection = ({ vehiculo, onOpenModal }) => {
                 <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', lineHeight: '1.3' }}>
                   {doc.titulo}
                 </div>
+
+                {/* Si tiene imagen adjunta, mostrar miniatura previa que invita a tocar */}
+                {hasImage && (
+                  <div style={{ 
+                    marginBottom: '0.65rem', 
+                    borderRadius: '6px', 
+                    overflow: 'hidden', 
+                    height: '65px', 
+                    backgroundColor: '#000', 
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    position: 'relative',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}>
+                    <img 
+                      src={doc.imagen} 
+                      alt={doc.titulo} 
+                      style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.85 }} 
+                    />
+                    <div style={{ 
+                      position: 'absolute', 
+                      inset: 0, 
+                      backgroundColor: 'rgba(0,0,0,0.3)', 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'center',
+                      gap: '5px',
+                      color: '#ffffff',
+                      fontSize: '0.72rem',
+                      fontWeight: 600
+                    }}>
+                      <Eye size={13} color="var(--primary)" />
+                      <span>Toca para ampliar</span>
+                    </div>
+                  </div>
+                )}
 
                 {/* Details list */}
                 <div style={{ fontSize: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.25rem', marginBottom: '0.75rem', backgroundColor: 'rgba(0,0,0,0.2)', padding: '0.5rem', borderRadius: 'var(--radius-sm)' }}>
@@ -446,19 +499,22 @@ const DocumentosVehiculoSection = ({ vehiculo, onOpenModal }) => {
               <button
                 type="button"
                 className="btn btn-secondary btn-sm"
-                onClick={() => onOpenModal({
-                  titulo: doc.titulo,
-                  tipo: doc.tipo,
-                  patente: vehiculo.patente,
-                  fechaVencimiento: doc.fechaVencimiento,
-                  numero: doc.numero,
-                  numeroLabel: doc.numeroLabel,
-                  emisor: doc.emisor,
-                  emisorLabel: doc.emisorLabel,
-                  imagen: doc.imagen,
-                  estado: st.estado,
-                  diasRestantes: st.dias
-                })}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenModal({
+                    titulo: doc.titulo,
+                    tipo: doc.tipo,
+                    patente: vehiculo.patente,
+                    fechaVencimiento: doc.fechaVencimiento,
+                    numero: doc.numero,
+                    numeroLabel: doc.numeroLabel,
+                    emisor: doc.emisor,
+                    emisorLabel: doc.emisorLabel,
+                    imagen: doc.imagen,
+                    estado: st.estado,
+                    diasRestantes: st.dias
+                  });
+                }}
                 style={{
                   width: '100%',
                   fontSize: '0.78rem',
@@ -472,7 +528,7 @@ const DocumentosVehiculoSection = ({ vehiculo, onOpenModal }) => {
                 }}
               >
                 <Eye size={14} />
-                <span>{hasImage ? 'Ver Documento' : 'Sin Imagen (Ver Ficha)'}</span>
+                <span>{hasImage ? 'Ver / Ampliar Documento' : 'Sin Imagen (Ver Ficha)'}</span>
               </button>
             </div>
           );
