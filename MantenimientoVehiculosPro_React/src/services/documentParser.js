@@ -24,12 +24,9 @@ const MUNICIPALIDADES_CHILE = [
  */
 function normalizarFecha(fechaRaw) {
   if (!fechaRaw) return null;
-  const clean = fechaRaw.replace(/[^0-9/-]/g, '');
-  const partsSlash = clean.split('/');
-  const partsDash = clean.split('-');
-  const parts = partsSlash.length === 3 ? partsSlash : (partsDash.length === 3 ? partsDash : null);
-
-  if (!parts) return null;
+  const clean = fechaRaw.replace(/\s+/g, '');
+  const parts = clean.split(/[-\/\.]/);
+  if (parts.length !== 3) return null;
 
   // DD/MM/YYYY o DD-MM-YYYY
   if (parts[0].length <= 2 && parts[2].length === 4) {
@@ -54,11 +51,13 @@ function normalizarFecha(fechaRaw) {
  */
 function extraerTextoDeSvg(dataUrl) {
   try {
-    if (!dataUrl.startsWith('data:image/svg+xml;base64,')) return null;
-    const b64 = dataUrl.replace('data:image/svg+xml;base64,', '');
+    let s = dataUrl.trim();
+    if (s.startsWith('"') && s.endsWith('"')) s = s.slice(1, -1);
+    if (!s.includes('data:image/svg+xml;base64,')) return null;
+    const b64 = s.replace(/^.*data:image\/svg\+xml;base64,/, '');
     const decoded = atob(b64);
     // Extraer texto plano eliminando etiquetas xml
-    return decoded.replace(/<[^>]+>/g, ' ');
+    return decoded.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
   } catch (e) {
     return null;
   }
@@ -87,33 +86,37 @@ export function parsearPadron(texto) {
   const t = texto.toUpperCase();
   const res = {};
 
-  // Patente (ej: FWKR-41, FWKR 41, FWKR.41 o AB1234)
-  const patenteMatch = t.match(/([A-Z]{2,4})[·\.\-\s]?([0-9]{2,4})/);
+  // Patente chilena (ej: FWKR-41, FWKR · 41, o BB-1234)
+  const patenteMatch = t.match(/(?:PLACA|PATENTE|PLACA ÚNICA)[^\w]*([A-Z]{2,4})[·\.\-\s]+([0-9]{2,4})/i) ||
+                       t.match(/\b([B-DF-HJ-NP-TV-Z]{4})[·\.\-\s]?([0-9]{2})\b/) ||
+                       t.match(/\b([A-Z]{2})[·\.\-\s]?([0-9]{4})\b/);
   if (patenteMatch) {
-    res.patente = `${patenteMatch[1]}${patenteMatch[2]}`;
+    res.patente = `${patenteMatch[1]}${patenteMatch[2]}`.replace(/[^A-Z0-9]/g, '');
   }
 
-  // Folio de Registro Civil (ej: RC-2018-984210 o FOLIO 123456)
-  const folioMatch = t.match(/FOLIO[^\w]*([A-Z0-9\-]{5,20})/i) || t.match(/(RC[-A-Z0-9]{6,20})/);
+  // Folio de Registro Civil (ej: RC-2018-984210)
+  const folioMatch = t.match(/(?:FOLIO|DOCUMENTO)[^\w:]*:[^\w]*([A-Z0-9\-]{5,25})/i) ||
+                     t.match(/\b(RC[-A-Z0-9]{6,20})\b/) ||
+                     t.match(/FOLIO[^\w]*([0-9\-]{5,15})/i);
   if (folioMatch) res.padronFolio = folioMatch[1].trim();
 
-  // VIN / Chasis (17 caracteres alfanuméricos)
-  const vinMatch = t.match(/(?:CHASIS|VIN)[^\w]*([A-HJ-NPR-Z0-9]{15,18})/i) || t.match(/\b([A-HJ-NPR-Z0-9]{17})\b/);
+  // VIN / Chasis (17 caracteres)
+  const vinMatch = t.match(/(?:CHASIS|VIN)[^\w:]*:[^\w]*([A-HJ-NPR-Z0-9]{15,18})/i) || 
+                   t.match(/\b([A-HJ-NPR-Z0-9]{17})\b/);
   if (vinMatch) res.padronVin = vinMatch[1].trim();
 
   // Motor
-  const motorMatch = t.match(/MOTOR[^\w]*([A-Z0-9\-]{5,20})/i);
+  const motorMatch = t.match(/(?:MOTOR)[^\w:]*:[^\w]*([A-Z0-9\-]{5,20})/i);
   if (motorMatch) res.padronMotor = motorMatch[1].trim();
 
   // Fecha Emisión
-  const fechaMatch = t.match(/(?:EMISI[ÓO]N|FECHA)[^\w]*(\d{1,2}[-/\.]\d{1,2}[-/\.]\d{2,4})/i);
+  const fechaMatch = t.match(/(?:EMISI[ÓO]N|FECHA)[^\w:]*:[^\w]*(\d{1,2}\s*[-\/\.]\s*\d{1,2}\s*[-\/\.]\s*\d{2,4})/i);
   if (fechaMatch) {
-    const norm = normalizarFecha(fechaMatch[1]);
-    if (norm) res.padronFechaEmision = norm;
+    res.padronFechaEmision = normalizarFecha(fechaMatch[1]);
   }
 
-  // Marca / Modelo / Año
-  const anioMatch = t.match(/(?:AÑO|FABRICACI[ÓO]N)[^\w]*(19\d\d|20\d\d)/i);
+  // Año de Fabricación
+  const anioMatch = t.match(/(?:AÑO|FABRICACI[ÓO]N)[^\w:]*:[^\w]*(19\d\d|20\d\d)/i);
   if (anioMatch) res.anio = parseInt(anioMatch[1]);
 
   return res;
@@ -127,15 +130,15 @@ export function parsearRevisionTecnica(texto) {
   const res = {};
 
   // Número / Folio de Certificado
-  const numMatch = t.match(/(?:CERTIFICADO|FOLIO|DOC)[^\w]*N?[°º]?[^\w]*([0-9\-]{5,15})/i) || t.match(/(PRT[-A-Z0-9]{5,20})/);
+  const numMatch = t.match(/(?:CERTIFICADO|FOLIO)[^\w:]*:[^\w]*([A-Z0-9\-]{5,20})/i) ||
+                   t.match(/\b(PRT[-A-Z0-9]{5,20})\b/) ||
+                   t.match(/N[°º][^\w]*([0-9\-]{5,15})/i);
   if (numMatch) res.revisionTecnicaNumero = numMatch[1].trim();
 
   // Vencimiento
-  const vencMatch = t.match(/(?:VENCE|VENCIMIENTO|HASTA|PR[ÓO]XIMO)[^\w]*(\d{1,2}[-/\.]\d{1,2}[-/\.]\d{2,4}|\d{4}[-/\.]\d{1,2}[-/\.]\d{1,2})/i) ||
-                    t.match(/(\d{4}-\d{2}-\d{2})/);
+  const vencMatch = t.match(/(?:VENCIMIENTO|VENCE|HASTA|PR[ÓO]XIMO)[^\d]*(\d{1,2}\s*[-\/\.]\s*\d{1,2}\s*[-\/\.]\s*\d{2,4}|\d{4}\s*[-\/\.]\s*\d{1,2}\s*[-\/\.]\s*\d{1,2})/i);
   if (vencMatch) {
-    const norm = normalizarFecha(vencMatch[1]);
-    if (norm) res.revisionTecnicaVencimiento = norm;
+    res.revisionTecnicaVencimiento = normalizarFecha(vencMatch[1]);
   }
 
   return res;
@@ -157,15 +160,16 @@ export function parsearSoap(texto) {
   }
 
   // Póliza
-  const polMatch = t.match(/(?:P[ÓO]LIZA)[^\w]*N?[°º]?[^\w]*([0-9A-Z\-]{5,20})/i) || t.match(/(POL[-A-Z0-9]{6,20})/);
+  const polMatch = t.match(/(?:P[ÓO]LIZA|N[ÚU]MERO)[^\w:]*:[^\w]*([A-Z0-9\-]{5,25})/i) ||
+                   t.match(/\b(POL[-A-Z0-9]{6,25})\b/);
   if (polMatch) res.soapPoliza = polMatch[1].trim();
 
   // Vencimiento SOAP (En Chile vence el 31 de marzo)
-  const vencMatch = t.match(/(?:VENCE|HASTA|VIGENCIA)[^\w]*(\d{1,2}[-/\.]\d{1,2}[-/\.]\d{2,4})/i) ||
-                    t.match(/(31[-/\.]03[-/\.]20\d\d)/);
+  const vencMatch = t.match(/(?:T[ÉE]RMINO|VENCE|HASTA)[^\d]*(\d{1,2}\s*[-\/\.]\s*\d{1,2}\s*[-\/\.]\s*\d{2,4})/i) ||
+                    t.match(/(31\s*[-\/\.]\s*03\s*[-\/\.]\s*20\d\d)/) ||
+                    t.match(/(?:VIGENCIA)[^\d]*(\d{1,2}\s*[-\/\.]\s*\d{1,2}\s*[-\/\.]\s*\d{2,4})/i);
   if (vencMatch) {
-    const norm = normalizarFecha(vencMatch[1]);
-    if (norm) res.soapVencimiento = norm;
+    res.soapVencimiento = normalizarFecha(vencMatch[1]);
   }
 
   return res;
@@ -187,15 +191,16 @@ export function parsearPermisoCirculacion(texto) {
   }
 
   // Folio
-  const folioMatch = t.match(/(?:FOLIO|PERMISO)[^\w]*N?[°º]?[^\w]*([0-9A-Z\-]{4,15})/i) || t.match(/(PC[-A-Z0-9]{5,20})/);
+  const folioMatch = t.match(/(?:FOLIO|COMPROBANTE|PERMISO)[^\w:]*:[^\w]*([A-Z0-9\-]{4,25})/i) ||
+                     t.match(/\b(FOL[-A-Z0-9]{5,25})\b/) ||
+                     t.match(/\b(PC[-A-Z0-9]{5,20})\b/);
   if (folioMatch) res.permisoCirculacionFolio = folioMatch[1].trim();
 
   // Vencimiento Permiso (normalmente 31 de marzo en Chile)
-  const vencMatch = t.match(/(?:VENCE|VENCIMIENTO|PAGO)[^\w]*(\d{1,2}[-/\.]\d{1,2}[-/\.]\d{2,4})/i) ||
-                    t.match(/(31[-/\.]03[-/\.]20\d\d)/);
+  const vencMatch = t.match(/(?:VENCE|VENCIMIENTO|PAGO)[^\d]*(\d{1,2}\s*[-\/\.]\s*\d{1,2}\s*[-\/\.]\s*\d{2,4})/i) ||
+                    t.match(/(31\s*[-\/\.]\s*03\s*[-\/\.]\s*20\d\d)/);
   if (vencMatch) {
-    const norm = normalizarFecha(vencMatch[1]);
-    if (norm) res.permisoCirculacionVencimiento = norm;
+    res.permisoCirculacionVencimiento = normalizarFecha(vencMatch[1]);
   }
 
   return res;
