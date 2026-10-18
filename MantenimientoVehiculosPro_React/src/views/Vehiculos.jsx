@@ -259,6 +259,7 @@ const Vehiculos = () => {
         } else if (tipoDoc === 'PRT') {
           if (extracted.revisionTecnicaNumero) { setFormRevisionTecnicaNumero(extracted.revisionTecnicaNumero); campos.push(`Certificado (${extracted.revisionTecnicaNumero})`); }
           if (extracted.revisionTecnicaVencimiento) { setFormRevisionTecnicaVencimiento(extracted.revisionTecnicaVencimiento); campos.push(`Vence (${extracted.revisionTecnicaVencimiento})`); }
+          if (extracted.patente && !formPatente) { setFormPatente(extracted.patente); campos.push(`Patente (${extracted.patente})`); }
         } else if (tipoDoc === 'SOAP') {
           if (extracted.soapAseguradora) { setFormSoapAseguradora(extracted.soapAseguradora); campos.push(`Aseguradora (${extracted.soapAseguradora})`); }
           if (extracted.soapPoliza) { setFormSoapPoliza(extracted.soapPoliza); campos.push(`Póliza (${extracted.soapPoliza})`); }

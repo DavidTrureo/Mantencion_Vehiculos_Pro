@@ -31,37 +31,42 @@ const MESES_ES = {
 
 /**
  * Normaliza y limpia una fecha a formato YYYY-MM-DD
- * Soporta DD/MM/YYYY, YYYY-MM-DD y fechas textuales como "15 de Octubre de 2025"
+ * Soporta:
+ * - Fechas numéricas: DD/MM/YYYY o YYYY-MM-DD
+ * - Fechas textuales completas: "15 de Octubre de 2025" o "4 Marzo 2026"
+ * - Mes y Año (vigencias PRT como "ABRIL 2027"): calcula automáticamente el último día del mes (2027-04-30)
  */
 function normalizarFecha(fechaRaw) {
   if (!fechaRaw) return null;
   const clean = fechaRaw.trim().toUpperCase();
 
-  // Fecha textual en español: ej. "15 DE OCTUBRE DE 2025" o "31 DE MARZO 2026"
-  const textMatch = clean.match(/(\d{1,2})\s+DE\s+([A-Z]+)\s+(?:DEL?\s+)?(20\d\d)/i);
-  if (textMatch) {
-    const dia = textMatch[1].padStart(2, '0');
-    const mes = MESES_ES[textMatch[2]];
-    const anio = textMatch[3];
-    if (mes) return `${anio}-${mes}-${dia}`;
+  // 1. Fecha textual con día, mes y año: ej. "15 DE OCTUBRE DE 2025" o "4 MARZO 2026"
+  const textConDiaMatch = clean.match(/(\d{1,2})\s+(?:DE\s+)?([A-Z]+)\s+(?:DEL?\s+)?(20\d\d)/i);
+  if (textConDiaMatch && MESES_ES[textConDiaMatch[2]]) {
+    const dia = textConDiaMatch[1].padStart(2, '0');
+    const mes = MESES_ES[textConDiaMatch[2]];
+    const anio = textConDiaMatch[3];
+    return `${anio}-${mes}-${dia}`;
   }
 
+  // 2. Mes y Año sin día específico (ej. "ABRIL 2027", "ABRIL DE 2027" - legalmente en Chile vence el último día de ese mes)
+  const soloMesAnioMatch = clean.match(/([A-Z]+)\s+(?:DEL?\s+)?(20\d\d)/i);
+  if (soloMesAnioMatch && MESES_ES[soloMesAnioMatch[1]]) {
+    const mesNum = parseInt(MESES_ES[soloMesAnioMatch[1]], 10);
+    const anio = parseInt(soloMesAnioMatch[2], 10);
+    const ultimoDia = new Date(anio, mesNum, 0).getDate();
+    return `${anio}-${MESES_ES[soloMesAnioMatch[1]]}-${String(ultimoDia).padStart(2, '0')}`;
+  }
+
+  // 3. Formato numérico DD/MM/YYYY o YYYY-MM-DD
   const parts = clean.replace(/\s+/g, '').split(/[-\/\.]/);
-  if (parts.length !== 3) return null;
-
-  // DD/MM/YYYY o DD-MM-YYYY
-  if (parts[0].length <= 2 && parts[2].length === 4) {
-    const dia = parts[0].padStart(2, '0');
-    const mes = parts[1].padStart(2, '0');
-    const anio = parts[2];
-    return `${anio}-${mes}-${dia}`;
-  }
-  // YYYY/MM/DD o YYYY-MM-DD
-  if (parts[0].length === 4 && parts[2].length <= 2) {
-    const anio = parts[0];
-    const mes = parts[1].padStart(2, '0');
-    const dia = parts[2].padStart(2, '0');
-    return `${anio}-${mes}-${dia}`;
+  if (parts.length === 3) {
+    if (parts[0].length <= 2 && parts[2].length === 4) {
+      return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+    }
+    if (parts[0].length === 4 && parts[2].length <= 2) {
+      return `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
+    }
   }
 
   return null;
@@ -244,20 +249,51 @@ export function parsearRevisionTecnica(texto) {
   const t = texto.toUpperCase();
   const res = {};
 
-  // Número / Folio de Certificado (con o sin dos puntos, ej: CERTIFICADO N° 123456, PRT-8841)
-  const numMatch = t.match(/(?:CERTIFICADO|FOLIO)\s*(?:N[°º]|NRO|NUMERO|\.)\s*:?\s*([A-Z0-9\-]{4,20})/i) ||
-                   t.match(/(?:CERTIFICADO|FOLIO)[^\w:]*:[^\w]*([A-Z0-9\-]{4,20})/i) ||
-                   t.match(/\b(PRT[-A-Z0-9]{4,20})\b/) ||
-                   t.match(/N[°º]\s*([0-9\-]{5,15})/i);
-  if (numMatch) res.revisionTecnicaNumero = numMatch[1].trim();
+  // N° Certificado y Planta de Revisión Técnica
+  // Soporta formatos chilenos:
+  // - "FECHA REVISIÓN: 4 MARZO 2026   N° B1327000000672820"
+  // - "PLANTA: B-1327"
+  // - "CERTIFICADO N°: 123456", "PRT-8841", etc.
+  const numCertMatch = t.match(/N[°º]\s*([A-Z0-9]{8,25})/i) ||
+                       t.match(/(?:CERTIFICADO|FOLIO)\s*(?:N[°º]|NRO|NUMERO|\.)\s*:?\s*([A-Z0-9]{5,25})/i) ||
+                       t.match(/(?:CERTIFICADO|FOLIO)[^\w:]*:[^\w]*([A-Z0-9\-]{4,20})/i) ||
+                       t.match(/\b(PRT[-A-Z0-9]{4,20})\b/) ||
+                       t.match(/N[°º]\s*([0-9\-]{5,20})/i);
+
+  const plantaMatch = t.match(/PLANTA\s*:?\s*([A-Z0-9\-]{2,15})/i);
+
+  if (numCertMatch) {
+    const certNum = numCertMatch[1].trim();
+    if (plantaMatch) {
+      res.revisionTecnicaNumero = `${certNum} (Planta ${plantaMatch[1].trim()})`;
+    } else {
+      res.revisionTecnicaNumero = certNum;
+    }
+  } else if (plantaMatch) {
+    res.revisionTecnicaNumero = `Planta ${plantaMatch[1].trim()}`;
+  }
 
   // Vencimiento PRT:
-  // Se prioriza la fecha de vencimiento/próximo control por sobre la fecha de inspección/otorgamiento
-  const vencMatch = t.match(/(?:VENCIMIENTO|VENCE|HASTA|PR[ÓO]XIMO\s+CONTROL|PR[ÓO]XIMA\s+REVISI[ÓO]N)[^\d]*(\d{1,2}\s*[-\/\.]\s*\d{1,2}\s*[-\/\.]\s*\d{2,4}|\d{4}\s*[-\/\.]\s*\d{1,2}\s*[-\/\.]\s*\d{1,2})/i) ||
-                    t.match(/(?:VÁLIDO|VALIDO)\s+HASTA[^\d]*(\d{1,2}\s*[-\/\.]\s*\d{1,2}\s*[-\/\.]\s*\d{2,4}|\d{4}\s*[-\/\.]\s*\d{1,2}\s*[-\/\.]\s*\d{1,2})/i) ||
-                    t.match(/(\d{1,2}\s+DE\s+[A-Z]+\s+(?:DEL?\s+)?20\d\d)/i);
-  if (vencMatch) {
-    res.revisionTecnicaVencimiento = normalizarFecha(vencMatch[1]);
+  // En Chile las PRT indican: "VÁLIDO HASTA ABRIL 2027" (mes y año).
+  // La norma técnica del MTT establece que rige hasta el último día del mes correspondiente a la patente (ej. 30 de abril de 2027).
+  const mesAnioMatch = t.match(/(?:V[AÁ]LIDO\s+HASTA|HASTA|VENCE|VENCIMIENTO)[^\w]*([A-Z]+)\s+(?:DEL?\s+)?(20\d\d)/i);
+  if (mesAnioMatch && MESES_ES[mesAnioMatch[1]]) {
+    res.revisionTecnicaVencimiento = normalizarFecha(`${mesAnioMatch[1]} ${mesAnioMatch[2]}`);
+  } else {
+    // Si viene fecha completa con día
+    const vencMatch = t.match(/(?:VENCIMIENTO|VENCE|HASTA|PR[ÓO]XIMO\s+CONTROL|PR[ÓO]XIMA\s+REVISI[ÓO]N)[^\d]*(\d{1,2}\s*[-\/\.]\s*\d{1,2}\s*[-\/\.]\s*\d{2,4}|\d{4}\s*[-\/\.]\s*\d{1,2}\s*[-\/\.]\s*\d{1,2})/i) ||
+                      t.match(/(?:VÁLIDO|VALIDO)\s+HASTA[^\d]*(\d{1,2}\s*[-\/\.]\s*\d{1,2}\s*[-\/\.]\s*\d{2,4}|\d{4}\s*[-\/\.]\s*\d{1,2}\s*[-\/\.]\s*\d{1,2})/i);
+    if (vencMatch) {
+      res.revisionTecnicaVencimiento = normalizarFecha(vencMatch[1]);
+    }
+  }
+
+  // Patente si aparece en el certificado (ej: PLACA PATENTE FWKR41)
+  const patenteMatch = t.match(/(?:PLACA|PATENTE|PLACA ÚNICA)[^\w]*([A-Z]{2,4})[·\.\-\s]+([0-9]{2,4})/i) ||
+                       t.match(/\b([B-DF-HJ-NP-TV-Z]{4})[·\.\-\s]?([0-9]{2})\b/) ||
+                       t.match(/\b([A-Z]{2})[·\.\-\s]?([0-9]{4})\b/);
+  if (patenteMatch) {
+    res.patente = `${patenteMatch[1]}${patenteMatch[2]}`.replace(/[^A-Z0-9]/g, '');
   }
 
   return res;
