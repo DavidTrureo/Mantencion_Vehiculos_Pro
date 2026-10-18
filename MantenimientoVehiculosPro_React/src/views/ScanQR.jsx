@@ -53,6 +53,7 @@ const ScanQR = () => {
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState('');
   const [selectedDoc, setSelectedDoc] = useState(null);
+  const [showScannerOnActiveShift, setShowScannerOnActiveShift] = useState(false);
 
   // Estados de Turno / Check-in / Check-out
   const [activeShift, setActiveShift] = useState(null);
@@ -178,11 +179,32 @@ const ScanQR = () => {
 
   // Cargar una lista de códigos rápidos para facilitar la demostración y sincronizar turno activo
   useEffect(() => {
+    const fetchVehicleForShift = async (vehId) => {
+      if (!vehId) return;
+      try {
+        const veh = await api.getVehiculoById(vehId);
+        if (veh) {
+          let owner = null;
+          if (veh.propietarioId) {
+            try {
+              owner = await api.getUsuarioById(veh.propietarioId);
+            } catch (_) {}
+          }
+          setResult({ vehicle: veh, owner });
+        }
+      } catch (err) {
+        console.warn("No se pudo cargar vehículo del turno activo:", err);
+      }
+    };
+
     try {
       const saved = localStorage.getItem('vehiculospro_jornada_activa');
       if (saved) {
         const parsed = JSON.parse(saved);
         setActiveShift(parsed);
+        if (parsed.vehiculoId) {
+          fetchVehicleForShift(parsed.vehiculoId);
+        }
       }
     } catch (e) {}
 
@@ -216,6 +238,10 @@ const ScanQR = () => {
             localStorage.setItem('vehiculospro_jornada_activa', JSON.stringify(restored));
             return restored;
           });
+
+          if (serverTurno.vehiculoId) {
+            fetchVehicleForShift(serverTurno.vehiculoId);
+          }
         }
       }).catch(() => {});
     }
@@ -532,6 +558,7 @@ const ScanQR = () => {
 
       localStorage.setItem('vehiculospro_jornada_activa', JSON.stringify(newShift));
       setActiveShift(newShift);
+      setShowScannerOnActiveShift(false);
       setResult({
         vehicle: updatedVehicleState,
         owner: targetDriver
@@ -1220,6 +1247,566 @@ const ScanQR = () => {
     });
   }, [fullHistoryList, historyFilter, historySearch]);
 
+  // Renderizar la tarjeta del lector QR / cámara
+  const renderScannerCard = (isModalOrSecondary = false) => (
+  <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', border: isModalOrSecondary ? '1px solid rgba(56, 189, 248, 0.4)' : undefined }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ fontSize: '1.15rem', display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
+                <Camera size={18} color="var(--primary)" />
+                {isModalOrSecondary ? 'Lector QR de Relevo / Emergencia' : 'Lector QR con Cámara'}
+              </h3>
+              {cameraActive && (
+                <span className="badge badge-success" style={{ animation: 'pulse 1.5s infinite' }}>
+                  Cámara Activa
+                </span>
+              )}
+            </div>
+  
+            {/* Scanner Viewport (Camera Stream / Placeholder) */}
+            <div 
+              style={{ 
+                minHeight: '270px', 
+                backgroundColor: '#05070a', 
+                border: cameraActive ? '2px solid var(--primary)' : '1px solid var(--border-color)', 
+                borderRadius: 'var(--radius-md)',
+                position: 'relative',
+                overflow: 'hidden',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              {/* 1. Vista de Cámara en Vivo Activa (100% Nativa HTML5/Capacitor) */}
+              {cameraActive && (
+                <div style={{ position: 'relative', width: '100%', height: '280px', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', background: '#000000' }}>
+                  <video
+                    ref={videoRef}
+                    playsInline
+                    autoPlay
+                    muted
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'cover'
+                    }}
+                  />
+  
+                  {/* Retícula de escaneo futurista tipo HUD */}
+                  <div style={{
+                    position: 'absolute',
+                    width: '200px',
+                    height: '200px',
+                    border: '2px solid rgba(56, 189, 248, 0.85)',
+                    borderRadius: '16px',
+                    boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.45)',
+                    pointerEvents: 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    overflow: 'hidden'
+                  }}>
+                    {/* Láser de barrido animado */}
+                    <div style={{
+                      width: '90%',
+                      height: '2px',
+                      background: 'linear-gradient(90deg, transparent, #38bdf8, #10b981, transparent)',
+                      boxShadow: '0 0 10px #38bdf8',
+                      animation: 'qrLaser 2s ease-in-out infinite'
+                    }} />
+                  </div>
+  
+                  {/* Botón Superior Derecho: Apagar Cámara */}
+                  <button
+                    type="button"
+                    onClick={stopCamera}
+                    className="btn btn-secondary btn-sm"
+                    style={{ 
+                      position: 'absolute', 
+                      top: '10px', 
+                      right: '10px', 
+                      zIndex: 20, 
+                      background: 'rgba(0,0,0,0.8)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      border: '1px solid rgba(255,255,255,0.2)',
+                      fontSize: '0.78rem',
+                      padding: '4px 10px'
+                    }}
+                  >
+                    <StopCircle size={14} color="#ef4444" />
+                    <span>Cerrar</span>
+                  </button>
+  
+                  {/* Botón Superior Izquierdo: Linterna / Flash */}
+                  <button
+                    type="button"
+                    onClick={toggleTorch}
+                    className="btn btn-secondary btn-sm"
+                    style={{ 
+                      position: 'absolute', 
+                      top: '10px', 
+                      left: '10px', 
+                      zIndex: 20, 
+                      background: torchActive ? 'rgba(234, 179, 8, 0.4)' : 'rgba(0,0,0,0.8)',
+                      border: torchActive ? '1px solid #eab308' : '1px solid rgba(255,255,255,0.2)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      fontSize: '0.75rem',
+                      padding: '4px 8px'
+                    }}
+                    title="Encender o apagar luz flash"
+                  >
+                    <Zap size={13} color={torchActive ? '#eab308' : '#ffffff'} />
+                    <span>{torchActive ? 'Luz ON' : 'Luz'}</span>
+                  </button>
+  
+                  {/* Instrucción inferior */}
+                  <span style={{
+                    position: 'absolute',
+                    bottom: '10px',
+                    background: 'rgba(0,0,0,0.7)',
+                    backdropFilter: 'blur(4px)',
+                    padding: '4px 12px',
+                    borderRadius: '12px',
+                    fontSize: '0.72rem',
+                    color: '#ffffff',
+                    fontWeight: 600,
+                    pointerEvents: 'none'
+                  }}>
+                    🎯 Apunta al código QR del móvil
+                  </span>
+                </div>
+              )}
+  
+              {/* 2. Estado Reposo / Selección de Captura */}
+              {!cameraActive && (
+                <div style={{ textAlign: 'center', padding: '1.5rem', width: '100%' }}>
+                  <QrCode size={72} style={{ opacity: 0.2, margin: '0 auto 1rem', display: 'block' }} />
+                  
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'center', width: '100%' }}>
+                    {/* Botón Principal: Escaneo Continuo en Vivo (Apuntar y listo, sin fotos) */}
+                    <button 
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={startCamera}
+                      style={{ 
+                        display: 'inline-flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center', 
+                        gap: '0.6rem', 
+                        width: '100%', 
+                        maxWidth: '290px', 
+                        fontWeight: 700, 
+                        padding: '0.75rem 1.25rem',
+                        fontSize: '0.95rem'
+                      }}
+                    >
+                      <Video size={20} />
+                      <span>📹 Escanear QR en Vivo</span>
+                    </button>
+  
+                    <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '0.15rem 0 0.5rem', maxWidth: '280px', lineHeight: 1.35 }}>
+                      Solo apunta la cámara hacia el código QR. Se detecta automáticamente sin guardar fotos.
+                    </p>
+  
+                    <div style={{ display: 'flex', gap: '0.5rem', width: '100%', maxWidth: '290px' }}>
+                      {/* Botón Foto Respaldo */}
+                      <button 
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => captureCameraRef.current?.click()}
+                        style={{ flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem', fontSize: '0.78rem', padding: '0.5rem 0.5rem' }}
+                        title="Tomar una fotografía manual si el QR está lejos o con poca luz"
+                      >
+                        <Camera size={14} />
+                        <span>📸 Foto Manual</span>
+                      </button>
+  
+                      {/* Botón Galería */}
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => fileInputRef.current?.click()}
+                        style={{ flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem', fontSize: '0.78rem', padding: '0.5rem 0.5rem' }}
+                        title="Subir imagen guardada en el dispositivo"
+                      >
+                        <Image size={14} />
+                        <span>🖼️ Galería</span>
+                      </button>
+                    </div>
+  
+                    {/* Input con capture='environment' para abrir directamente la cámara de fotos del móvil */}
+                    <input 
+                      type="file" 
+                      ref={captureCameraRef} 
+                      accept="image/*" 
+                      capture="environment"
+                      style={{ display: 'none' }} 
+                      onChange={handleImageFile} 
+                    />
+  
+                    {/* Input estándar para selector de galería o PC */}
+                    <input 
+                      type="file" 
+                      ref={fileInputRef} 
+                      accept="image/*" 
+                      style={{ display: 'none' }} 
+                      onChange={handleImageFile} 
+                    />
+                  </div>
+                </div>
+              )}
+  
+              {searching && (
+                <div style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(5, 7, 12, 0.85)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 30 }}>
+                  <div style={{ width: '36px', height: '36px', border: '3px solid rgba(255,255,255,0.1)', borderTopColor: 'var(--primary)', borderRadius: '50%', animation: 'spin 1s linear infinite', marginBottom: '0.75rem' }} />
+                  <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Consultando datos del vehículo...</span>
+                </div>
+              )}
+            </div>
+  
+            {cameraError && (
+              <div style={{ padding: '0.85rem 1rem', borderRadius: 'var(--radius-sm)', backgroundColor: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.28)', color: '#fca5a5', fontSize: '0.82rem', display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
+                  <ShieldAlert size={18} style={{ flexShrink: 0, marginTop: '2px', color: '#ef4444' }} />
+                  <div style={{ lineHeight: 1.45 }}>{cameraError}</div>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-success btn-sm"
+                  onClick={() => captureCameraRef.current?.click()}
+                  style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', fontWeight: 700, padding: '0.55rem 1rem', width: '100%' }}
+                >
+                  <Camera size={16} />
+                  <span>📸 Tomar Foto al QR con la Cámara Móvil</span>
+                </button>
+              </div>
+            )}
+  
+            {/* Form / Manual Inputs & Simulator */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
+              {(isAdmin || isMecanico) && (
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                    Prueba Rápida (Solo Administrador / Taller):
+                  </label>
+                  <select 
+                    className="form-input form-select"
+                    onChange={(e) => {
+                      setQrText(e.target.value);
+                      if (e.target.value) handleScan(e.target.value);
+                    }}
+                    value={qrText}
+                    style={{ fontSize: '0.85rem' }}
+                  >
+                    <option value="">-- Seleccionar vehículo registrado para prueba --</option>
+                    {availableVehicles.map((av, idx) => (
+                      <option key={idx} value={av.qrCode}>
+                        {av.label} ({av.qrCode})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+  
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                  Ingreso manual por código o patente:
+                </label>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    placeholder="Ej: FWKR41 o VEHICULO:1"
+                    value={qrText}
+                    onChange={(e) => setQrText(e.target.value)}
+                    style={{ fontSize: '0.85rem' }}
+                  />
+                  <button className="btn btn-primary" onClick={() => handleScan()} disabled={searching} style={{ padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <Search size={16} />
+                    <span>Consultar</span>
+                  </button>
+                </div>
+              </div>
+  
+              {errorMsg && (
+                <div 
+                  style={{ 
+                    padding: '0.75rem', 
+                    borderRadius: 'var(--radius-sm)', 
+                    backgroundColor: 'rgba(239, 68, 68, 0.05)', 
+                    border: '1px solid rgba(239, 68, 68, 0.15)',
+                    fontSize: '0.8rem',
+                    color: 'var(--color-danger)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem'
+                  }}
+                >
+                  <ShieldAlert size={16} />
+                  <span>{errorMsg}</span>
+                </div>
+              )}
+            </div>
+          </div>
+  );
+
+  // Renderizar la tarjeta de especificaciones y documentos del vehículo
+  const renderVehicleDetailsCard = (isStandAlone = false) => {
+    if (!result?.vehicle) return null;
+    return (
+    <div 
+                  className="glass-card" 
+                  style={{ 
+                    height: isStandAlone ? 'auto' : '100%', 
+                    borderLeft: hasAlerts ? '6px solid var(--color-danger)' : '6px solid var(--color-success)',
+                    animation: 'slideUp 0.3s ease-out'
+                  }}
+                >
+                  {/* Security Authorization Status Header */}
+                  <div style={{ textAlign: 'center', marginBottom: '1.5rem', paddingBottom: '1rem', borderBottom: '1px solid var(--border-color)' }}>
+                    {result.vehicle.activo === false ? (
+                      <>
+                        <div style={{ display: 'inline-flex', padding: '0.5rem', borderRadius: '50%', backgroundColor: 'rgba(239, 68, 68, 0.15)', color: 'var(--color-danger)', marginBottom: '0.5rem' }}>
+                          <ShieldAlert size={36} />
+                        </div>
+                        <h2 style={{ fontSize: '1.4rem', color: 'var(--color-danger)', fontWeight: 800 }}>
+                          VEHÍCULO APAGADO / FUERA DE SERVICIO 🛑
+                        </h2>
+                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                          Este vehículo fue dado de baja o apagado por el Administrador. No está autorizado para circular ni iniciar jornada.
+                        </p>
+                      </>
+                    ) : hasAlerts ? (
+                      <>
+                        <div style={{ display: 'inline-flex', padding: '0.5rem', borderRadius: '50%', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: 'var(--color-danger)', marginBottom: '0.5rem' }}>
+                          <ShieldAlert size={36} />
+                        </div>
+                        <h2 style={{ fontSize: '1.4rem', color: 'var(--color-danger)', fontWeight: 800 }}>
+                          ACCESO RESTRINGIDO ⚠️
+                        </h2>
+                        <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Mantenimientos pendientes o kilometraje crítico vencido</p>
+                      </>
+                    ) : (
+                      <>
+                        <div style={{ display: 'inline-flex', padding: '0.5rem', borderRadius: '50%', backgroundColor: 'rgba(16, 185, 129, 0.1)', color: 'var(--color-success)', marginBottom: '0.5rem' }}>
+                          <CheckCircle2 size={36} />
+                        </div>
+                        <h2 style={{ fontSize: '1.4rem', color: 'var(--color-success)', fontWeight: 800 }}>
+                          ACCESO AUTORIZADO ✅
+                        </h2>
+                        <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Vehículo operativo y al día con sus pautas</p>
+                      </>
+                    )}
+                  </div>
+    
+                  {/* Panel de Turno y Operación (Check-in / Check-out) */}
+                  {result.vehicle.activo === false ? (
+                    <div style={{ padding: '0.85rem 1rem', backgroundColor: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.25)', borderRadius: 'var(--radius-md)', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                      <ShieldAlert size={22} color="var(--color-danger)" style={{ flexShrink: 0 }} />
+                      <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                        <strong style={{ color: 'var(--color-danger)', display: 'block', marginBottom: '2px' }}>
+                          🚫 Móvil Fuera de Servicio
+                        </strong>
+                        El Administrador tiene este vehículo inhabilitado. No está autorizado para iniciar turnos ni circular.
+                      </div>
+                    </div>
+                  ) : activeShift && activeShift.vehiculoId === result.vehicle.id && activeShift.conductorId === user?.id ? (
+                    <div style={{ padding: '0.85rem 1rem', backgroundColor: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.25)', borderRadius: 'var(--radius-md)', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                        <span style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: '#10b981', display: 'inline-block', boxShadow: '0 0 8px #10b981' }}></span>
+                        <div>
+                          <div style={{ color: '#10b981', fontWeight: 700, fontSize: '0.88rem' }}>Móvil asignado a tu turno en curso</div>
+                          <div style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', marginTop: '2px' }}>
+                            Los controles de check-out, odómetro satelital y reporte de fallas están activos en el panel superior.
+                          </div>
+                        </div>
+                      </div>
+                      <span className="badge badge-success" style={{ fontSize: '0.72rem', padding: '0.25rem 0.6rem' }}>🟢 En Ruta</span>
+                    </div>
+                  ) : activeShift && activeShift.vehiculoId === result.vehicle.id && activeShift.conductorId !== user?.id ? (
+                    <div style={{ padding: '1rem', backgroundColor: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: 'var(--radius-md)', marginBottom: '1.25rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <Clock size={18} color="#f59e0b" />
+                          <strong style={{ color: '#f59e0b', fontSize: '0.9rem' }}>Móvil Ocupado por {activeShift.conductorNombre}</strong>
+                        </div>
+                        <span className="badge badge-warning" style={{ fontSize: '0.65rem' }}>En Turno</span>
+                      </div>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                        <div>⏱️ Turno iniciado: <strong>{activeShift.fechaInicioStr}</strong></div>
+                        <div>🔢 Km al recibir: <strong>{activeShift.kmInicial?.toLocaleString()} km</strong></div>
+                        {activeShift.kmGpsAcumulados > 0 && (
+                          <div style={{ color: '#10b981', fontWeight: 600 }}>🛰️ GPS en ruta: +{activeShift.kmGpsAcumulados.toFixed(2)} km</div>
+                        )}
+                      </div>
+                      {(isAdmin || isMecanico) ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                          <button 
+                            type="button" 
+                            className="btn btn-warning" 
+                            style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', fontWeight: 700 }}
+                            onClick={handleOpenEndShiftModal}
+                          >
+                            <StopCircle size={18} />
+                            🛑 Forzar Cierre Administrativo de Turno (Supervisor)
+                          </button>
+                          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textAlign: 'center' }}>
+                            Tienes privilegios de supervisión para cerrar el turno si el chofer olvidó marcar o se retiró.
+                          </span>
+                        </div>
+                      ) : (
+                        <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0 }}>
+                          Este vehículo está siendo conducido actualmente por <strong>{activeShift.conductorNombre}</strong>. Podrás tomarlo una vez que el colega entregue el turno o supervisión lo libere.
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <div style={{ padding: '1rem', backgroundColor: 'rgba(56, 189, 248, 0.08)', border: '1px solid rgba(56, 189, 248, 0.25)', borderRadius: 'var(--radius-md)', marginBottom: '1.25rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <Sparkles size={18} color="#38bdf8" />
+                          <strong style={{ color: 'var(--text-primary)', fontSize: '0.9rem' }}>Vehículo Disponible en Patio / Base</strong>
+                        </div>
+                        <span className="badge badge-info" style={{ fontSize: '0.65rem' }}>Libre</span>
+                      </div>
+                      <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.75rem' }}>
+                        ¿Vas a operar este móvil en tu turno? Realiza el Check-in rápido en 15 segundos para registrar odómetro, combustible y salir a ruta.
+                      </p>
+                      <button 
+                        type="button" 
+                        className="btn btn-primary" 
+                        style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', fontWeight: 700 }}
+                        onClick={() => {
+                          setShiftKmInicial(result.vehicle.kilometraje || 0);
+                          setIsOdometerBroken(false);
+                          if (result.vehicle.propietarioId) {
+                            setSelectedDriverId(result.vehicle.propietarioId);
+                          } else if (user?.role === 'CONDUCTOR') {
+                            setSelectedDriverId(user.id);
+                          } else {
+                            setSelectedDriverId('');
+                          }
+                          setShowStartShiftModal(true);
+                        }}
+                      >
+                        <Car size={18} />
+                        🚗 Iniciar Turno con este Móvil (Check-in)
+                      </button>
+                    </div>
+                  )}
+    
+                  {/* Vehicle Specifications */}
+                  <h4 style={{ fontSize: '0.95rem', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <Car size={16} color="var(--primary)" />
+                    Datos del Vehículo
+                  </h4>
+                  <div style={{ padding: '0.85rem 1rem', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', marginBottom: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
+                      <span style={{ color: 'var(--text-secondary)' }}>Marca / Modelo:</span>
+                      <strong style={{ color: 'var(--text-primary)' }}>{result.vehicle.marca} {result.vehicle.modelo}</strong>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
+                      <span style={{ color: 'var(--text-secondary)' }}>Patente:</span>
+                      <strong style={{ color: 'var(--primary)', letterSpacing: '0.05em' }}>{result.vehicle.patente || 'S/P'}</strong>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
+                      <span style={{ color: 'var(--text-secondary)' }}>Estado Operativo:</span>
+                      <strong style={{ color: result.vehicle.activo !== false ? 'var(--color-success)' : 'var(--color-danger)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: result.vehicle.activo !== false ? '#10b981' : '#ef4444' }}></span>
+                        {result.vehicle.activo !== false ? 'Encendido / Operativo' : 'Apagado / Fuera de servicio'}
+                      </strong>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
+                      <span style={{ color: 'var(--text-secondary)' }}>Año:</span>
+                      <strong style={{ color: 'var(--text-primary)' }}>{result.vehicle.anio}</strong>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
+                      <span style={{ color: 'var(--text-secondary)' }}>Kilometraje:</span>
+                      <strong style={{ color: 'var(--text-primary)' }}>{(result.vehicle.kilometraje || 0).toLocaleString()} km</strong>
+                    </div>
+                  </div>
+    
+                  {/* Owner / Estado de Asignación Information */}
+                  {(result.owner || result.vehicle?.propietarioId || result.vehicle?.propietarioNombre) ? (
+                    <>
+                      <h4 style={{ fontSize: '0.95rem', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <User size={16} color="var(--primary)" />
+                        Conductor / Responsable Asignado
+                      </h4>
+                      <div style={{ padding: '0.85rem 1rem', backgroundColor: 'rgba(59, 130, 246, 0.05)', borderRadius: 'var(--radius-md)', border: '1px solid rgba(59, 130, 246, 0.25)', marginBottom: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.4rem', fontSize: '0.85rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontWeight: 700, fontSize: '0.95rem', color: '#60a5fa' }}>
+                            👤 {result.owner?.fullName || result.owner?.username || result.vehicle?.propietarioNombre || 'Conductor Asignado'}
+                          </span>
+                          <span className="badge badge-info" style={{ fontSize: '0.68rem', fontWeight: 700 }}>🔵 Asignado en Turno</span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-secondary)' }}>
+                          <Phone size={14} /> {result.owner?.phoneNumber || 'Sin teléfono registrado'}
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-secondary)' }}>
+                          <Mail size={14} /> {result.owner?.email || 'Sin correo registrado'}
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <div style={{ padding: '0.85rem 1rem', backgroundColor: 'rgba(16, 185, 129, 0.08)', borderRadius: 'var(--radius-md)', border: '1px solid rgba(16, 185, 129, 0.3)', marginBottom: '1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.85rem' }}>
+                      <span style={{ color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <User size={16} color="#34d399" />
+                        Estado de Asignación:
+                      </span>
+                      <strong style={{ color: '#34d399', display: 'flex', alignItems: 'center', gap: '5px', fontWeight: 700, fontSize: '0.88rem' }}>
+                        <CheckCircle2 size={15} />
+                        🟢 Disponible (Sin Asignar)
+                      </strong>
+                    </div>
+                  )}
+    
+                  {/* Documentación Legal Obligatoria (Chile) */}
+                  <div style={{ marginBottom: '1.25rem' }}>
+                    <h4 style={{ fontSize: '0.95rem', marginBottom: '0.4rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-primary)' }}>
+                      <FileCheck size={16} color="var(--primary)" />
+                      Documentación Legal Vehicular (Chile)
+                    </h4>
+                    <DocumentosVehiculoSection 
+                      vehiculo={result.vehicle} 
+                      onOpenModal={(docData) => setSelectedDoc(docData)} 
+                    />
+                  </div>
+    
+                  {/* List of alerts */}
+                  {hasAlerts && (
+                    <div>
+                      <h4 style={{ fontSize: '0.95rem', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--color-danger)' }}>
+                        <AlertTriangle size={16} />
+                        Observaciones Técnicas ({result.vehicle.alertas.length})
+                      </h4>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        {result.vehicle.alertas.map((alert, i) => (
+                          <div 
+                            key={i} 
+                            style={{ 
+                              padding: '0.75rem', 
+                              backgroundColor: 'rgba(239, 68, 68, 0.05)', 
+                              border: '1px solid rgba(239, 68, 68, 0.15)',
+                              borderRadius: 'var(--radius-sm)',
+                              fontSize: '0.8rem',
+                              color: 'var(--color-danger)'
+                            }}
+                          >
+                            {alert}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+    );
+  };
+
   return (
     <div style={{ animation: 'fadeIn 0.3s ease-out', maxWidth: '1000px', margin: '0 auto' }}>
       
@@ -1229,7 +1816,9 @@ const ScanQR = () => {
           Control de Acceso QR 📱
         </h1>
         <p style={{ color: 'var(--text-secondary)' }}>
-          Escanea el código QR del vehículo con tu cámara o ingresa el identificador para verificar su estado en tiempo real.
+          {activeShift 
+            ? 'Tienes una jornada de reparto activa. Puedes consultar los documentos del móvil o finalizar tu turno.'
+            : 'Escanea el código QR del vehículo con tu cámara o ingresa el identificador para verificar su estado en tiempo real.'}
         </p>
       </div>
 
@@ -1365,588 +1954,73 @@ const ScanQR = () => {
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 1fr', gap: '1.5rem' }} className="scan-layout">
-        
-        {/* Left Side: Real Camera / Scanner */}
-        <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h3 style={{ fontSize: '1.15rem', display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
-              <Camera size={18} color="var(--primary)" />
-              Lector QR con Cámara
-            </h3>
-            {cameraActive && (
-              <span className="badge badge-success" style={{ animation: 'pulse 1.5s infinite' }}>
-                Cámara Activa
-              </span>
-            )}
+      {/* SI HAY UN TURNO ACTIVO: Enfoque 100% en la Operación y Móvil en Ruta */}
+      {activeShift ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          {/* Ficha técnica y documentos legales del móvil que se está conduciendo */}
+          {result?.vehicle && renderVehicleDetailsCard(true)}
+
+          {/* Botón colapsable para relevo de vehículo / emergencias */}
+          <div style={{ textAlign: 'center', margin: '0.5rem 0' }}>
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={() => setShowScannerOnActiveShift(prev => !prev)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                fontSize: '0.82rem',
+                padding: '0.6rem 1.25rem',
+                borderRadius: 'var(--radius-md)',
+                background: showScannerOnActiveShift ? 'rgba(239, 68, 68, 0.12)' : 'rgba(255, 255, 255, 0.04)',
+                border: showScannerOnActiveShift ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid var(--border-color)',
+                color: showScannerOnActiveShift ? '#fca5a5' : 'var(--text-secondary)'
+              }}
+            >
+              <QrCode size={16} />
+              <span>{showScannerOnActiveShift ? '✕ Ocultar Lector QR' : '🔍 ¿Relevo o escanear otro móvil por emergencia?'}</span>
+            </button>
           </div>
 
-          {/* Scanner Viewport (Camera Stream / Placeholder) */}
-          <div 
-            style={{ 
-              minHeight: '270px', 
-              backgroundColor: '#05070a', 
-              border: cameraActive ? '2px solid var(--primary)' : '1px solid var(--border-color)', 
-              borderRadius: 'var(--radius-md)',
-              position: 'relative',
-              overflow: 'hidden',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
-          >
-            {/* 1. Vista de Cámara en Vivo Activa (100% Nativa HTML5/Capacitor) */}
-            {cameraActive && (
-              <div style={{ position: 'relative', width: '100%', height: '280px', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', background: '#000000' }}>
-                <video
-                  ref={videoRef}
-                  playsInline
-                  autoPlay
-                  muted
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'cover'
-                  }}
-                />
+          {/* El lector se abre ÚNICAMENTE si el chofer lo solicita expresamente */}
+          {showScannerOnActiveShift && renderScannerCard(true)}
+        </div>
+      ) : (
+        /* SI NO HAY TURNO ACTIVO: Lector a la izquierda y Resultados / Esperando Escaneo a la derecha */
+        <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 1fr', gap: '1.5rem' }} className="scan-layout">
+          {renderScannerCard(false)}
 
-                {/* Retícula de escaneo futurista tipo HUD */}
-                <div style={{
-                  position: 'absolute',
-                  width: '200px',
-                  height: '200px',
-                  border: '2px solid rgba(56, 189, 248, 0.85)',
-                  borderRadius: '16px',
-                  boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.45)',
-                  pointerEvents: 'none',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  overflow: 'hidden'
-                }}>
-                  {/* Láser de barrido animado */}
-                  <div style={{
-                    width: '90%',
-                    height: '2px',
-                    background: 'linear-gradient(90deg, transparent, #38bdf8, #10b981, transparent)',
-                    boxShadow: '0 0 10px #38bdf8',
-                    animation: 'qrLaser 2s ease-in-out infinite'
-                  }} />
-                </div>
-
-                {/* Botón Superior Derecho: Apagar Cámara */}
-                <button
-                  type="button"
-                  onClick={stopCamera}
-                  className="btn btn-secondary btn-sm"
-                  style={{ 
-                    position: 'absolute', 
-                    top: '10px', 
-                    right: '10px', 
-                    zIndex: 20, 
-                    background: 'rgba(0,0,0,0.8)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '5px',
-                    border: '1px solid rgba(255,255,255,0.2)',
-                    fontSize: '0.78rem',
-                    padding: '4px 10px'
-                  }}
-                >
-                  <StopCircle size={14} color="#ef4444" />
-                  <span>Cerrar</span>
-                </button>
-
-                {/* Botón Superior Izquierdo: Linterna / Flash */}
-                <button
-                  type="button"
-                  onClick={toggleTorch}
-                  className="btn btn-secondary btn-sm"
-                  style={{ 
-                    position: 'absolute', 
-                    top: '10px', 
-                    left: '10px', 
-                    zIndex: 20, 
-                    background: torchActive ? 'rgba(234, 179, 8, 0.4)' : 'rgba(0,0,0,0.8)',
-                    border: torchActive ? '1px solid #eab308' : '1px solid rgba(255,255,255,0.2)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    fontSize: '0.75rem',
-                    padding: '4px 8px'
-                  }}
-                  title="Encender o apagar luz flash"
-                >
-                  <Zap size={13} color={torchActive ? '#eab308' : '#ffffff'} />
-                  <span>{torchActive ? 'Luz ON' : 'Luz'}</span>
-                </button>
-
-                {/* Instrucción inferior */}
-                <span style={{
-                  position: 'absolute',
-                  bottom: '10px',
-                  background: 'rgba(0,0,0,0.7)',
-                  backdropFilter: 'blur(4px)',
-                  padding: '4px 12px',
-                  borderRadius: '12px',
-                  fontSize: '0.72rem',
-                  color: '#ffffff',
-                  fontWeight: 600,
-                  pointerEvents: 'none'
-                }}>
-                  🎯 Apunta al código QR del móvil
-                </span>
-              </div>
-            )}
-
-            {/* 2. Estado Reposo / Selección de Captura */}
-            {!cameraActive && (
-              <div style={{ textAlign: 'center', padding: '1.5rem', width: '100%' }}>
-                <QrCode size={72} style={{ opacity: 0.2, margin: '0 auto 1rem', display: 'block' }} />
-                
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'center', width: '100%' }}>
-                  {/* Botón Principal: Escaneo Continuo en Vivo (Apuntar y listo, sin fotos) */}
-                  <button 
-                    type="button"
-                    className="btn btn-primary"
-                    onClick={startCamera}
-                    style={{ 
-                      display: 'inline-flex', 
-                      alignItems: 'center', 
-                      justifyContent: 'center', 
-                      gap: '0.6rem', 
-                      width: '100%', 
-                      maxWidth: '290px', 
-                      fontWeight: 700, 
-                      padding: '0.75rem 1.25rem',
-                      fontSize: '0.95rem'
-                    }}
-                  >
-                    <Video size={20} />
-                    <span>📹 Escanear QR en Vivo</span>
-                  </button>
-
-                  <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '0.15rem 0 0.5rem', maxWidth: '280px', lineHeight: 1.35 }}>
-                    Solo apunta la cámara hacia el código QR. Se detecta automáticamente sin guardar fotos.
-                  </p>
-
-                  <div style={{ display: 'flex', gap: '0.5rem', width: '100%', maxWidth: '290px' }}>
-                    {/* Botón Foto Respaldo */}
-                    <button 
-                      type="button"
-                      className="btn btn-secondary btn-sm"
-                      onClick={() => captureCameraRef.current?.click()}
-                      style={{ flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem', fontSize: '0.78rem', padding: '0.5rem 0.5rem' }}
-                      title="Tomar una fotografía manual si el QR está lejos o con poca luz"
-                    >
-                      <Camera size={14} />
-                      <span>📸 Foto Manual</span>
-                    </button>
-
-                    {/* Botón Galería */}
-                    <button
-                      type="button"
-                      className="btn btn-secondary btn-sm"
-                      onClick={() => fileInputRef.current?.click()}
-                      style={{ flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem', fontSize: '0.78rem', padding: '0.5rem 0.5rem' }}
-                      title="Subir imagen guardada en el dispositivo"
-                    >
-                      <Image size={14} />
-                      <span>🖼️ Galería</span>
-                    </button>
-                  </div>
-
-                  {/* Input con capture='environment' para abrir directamente la cámara de fotos del móvil */}
-                  <input 
-                    type="file" 
-                    ref={captureCameraRef} 
-                    accept="image/*" 
-                    capture="environment"
-                    style={{ display: 'none' }} 
-                    onChange={handleImageFile} 
-                  />
-
-                  {/* Input estándar para selector de galería o PC */}
-                  <input 
-                    type="file" 
-                    ref={fileInputRef} 
-                    accept="image/*" 
-                    style={{ display: 'none' }} 
-                    onChange={handleImageFile} 
-                  />
-                </div>
-              </div>
-            )}
-
-            {searching && (
-              <div style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(5, 7, 12, 0.85)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 30 }}>
-                <div style={{ width: '36px', height: '36px', border: '3px solid rgba(255,255,255,0.1)', borderTopColor: 'var(--primary)', borderRadius: '50%', animation: 'spin 1s linear infinite', marginBottom: '0.75rem' }} />
-                <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Consultando datos del vehículo...</span>
-              </div>
-            )}
-          </div>
-
-          {cameraError && (
-            <div style={{ padding: '0.85rem 1rem', borderRadius: 'var(--radius-sm)', backgroundColor: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.28)', color: '#fca5a5', fontSize: '0.82rem', display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
-              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
-                <ShieldAlert size={18} style={{ flexShrink: 0, marginTop: '2px', color: '#ef4444' }} />
-                <div style={{ lineHeight: 1.45 }}>{cameraError}</div>
-              </div>
-              <button
-                type="button"
-                className="btn btn-success btn-sm"
-                onClick={() => captureCameraRef.current?.click()}
-                style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', fontWeight: 700, padding: '0.55rem 1rem', width: '100%' }}
-              >
-                <Camera size={16} />
-                <span>📸 Tomar Foto al QR con la Cámara Móvil</span>
-              </button>
-            </div>
-          )}
-
-          {/* Form / Manual Inputs & Simulator */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
-            {(isAdmin || isMecanico) && (
-              <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label" style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                  Prueba Rápida (Solo Administrador / Taller):
-                </label>
-                <select 
-                  className="form-input form-select"
-                  onChange={(e) => {
-                    setQrText(e.target.value);
-                    if (e.target.value) handleScan(e.target.value);
-                  }}
-                  value={qrText}
-                  style={{ fontSize: '0.85rem' }}
-                >
-                  <option value="">-- Seleccionar vehículo registrado para prueba --</option>
-                  {availableVehicles.map((av, idx) => (
-                    <option key={idx} value={av.qrCode}>
-                      {av.label} ({av.qrCode})
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            <div className="form-group" style={{ margin: 0 }}>
-              <label className="form-label" style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                Ingreso manual por código o patente:
-              </label>
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <input 
-                  type="text" 
-                  className="form-input" 
-                  placeholder="Ej: FWKR41 o VEHICULO:1"
-                  value={qrText}
-                  onChange={(e) => setQrText(e.target.value)}
-                  style={{ fontSize: '0.85rem' }}
-                />
-                <button className="btn btn-primary" onClick={() => handleScan()} disabled={searching} style={{ padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                  <Search size={16} />
-                  <span>Consultar</span>
-                </button>
-              </div>
-            </div>
-
-            {errorMsg && (
+          <div>
+            {result?.vehicle ? (
+              renderVehicleDetailsCard(false)
+            ) : (
               <div 
+                className="glass-card" 
                 style={{ 
-                  padding: '0.75rem', 
-                  borderRadius: 'var(--radius-sm)', 
-                  backgroundColor: 'rgba(239, 68, 68, 0.05)', 
-                  border: '1px solid rgba(239, 68, 68, 0.15)',
-                  fontSize: '0.8rem',
-                  color: 'var(--color-danger)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem'
+                  height: '100%', 
+                  minHeight: '260px',
+                  display: 'flex', 
+                  flexDirection: 'column', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  textAlign: 'center', 
+                  color: 'var(--text-secondary)',
+                  padding: '3rem 1.5rem',
+                  borderStyle: 'dashed'
                 }}
               >
-                <ShieldAlert size={16} />
-                <span>{errorMsg}</span>
+                <QrCode size={48} style={{ marginBottom: '1.25rem', opacity: 0.3 }} />
+                <h3 style={{ fontSize: '1.15rem' }}>Esperando Escaneo</h3>
+                <p style={{ fontSize: '0.85rem', marginTop: '0.5rem', maxWidth: '300px' }}>
+                  Enciende la cámara y enfoca el código QR del vehículo, sube una foto o selecciona un vehículo para consultar su ficha técnica.
+                </p>
               </div>
             )}
           </div>
         </div>
-
-        {/* Right Side: Scan Results */}
-        <div>
-          {result ? (
-            <div 
-              className="glass-card" 
-              style={{ 
-                height: '100%', 
-                borderLeft: hasAlerts ? '6px solid var(--color-danger)' : '6px solid var(--color-success)',
-                animation: 'slideUp 0.3s ease-out'
-              }}
-            >
-              {/* Security Authorization Status Header */}
-              <div style={{ textAlign: 'center', marginBottom: '1.5rem', paddingBottom: '1rem', borderBottom: '1px solid var(--border-color)' }}>
-                {result.vehicle.activo === false ? (
-                  <>
-                    <div style={{ display: 'inline-flex', padding: '0.5rem', borderRadius: '50%', backgroundColor: 'rgba(239, 68, 68, 0.15)', color: 'var(--color-danger)', marginBottom: '0.5rem' }}>
-                      <ShieldAlert size={36} />
-                    </div>
-                    <h2 style={{ fontSize: '1.4rem', color: 'var(--color-danger)', fontWeight: 800 }}>
-                      VEHÍCULO APAGADO / FUERA DE SERVICIO 🛑
-                    </h2>
-                    <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                      Este vehículo fue dado de baja o apagado por el Administrador. No está autorizado para circular ni iniciar jornada.
-                    </p>
-                  </>
-                ) : hasAlerts ? (
-                  <>
-                    <div style={{ display: 'inline-flex', padding: '0.5rem', borderRadius: '50%', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: 'var(--color-danger)', marginBottom: '0.5rem' }}>
-                      <ShieldAlert size={36} />
-                    </div>
-                    <h2 style={{ fontSize: '1.4rem', color: 'var(--color-danger)', fontWeight: 800 }}>
-                      ACCESO RESTRINGIDO ⚠️
-                    </h2>
-                    <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Mantenimientos pendientes o kilometraje crítico vencido</p>
-                  </>
-                ) : (
-                  <>
-                    <div style={{ display: 'inline-flex', padding: '0.5rem', borderRadius: '50%', backgroundColor: 'rgba(16, 185, 129, 0.1)', color: 'var(--color-success)', marginBottom: '0.5rem' }}>
-                      <CheckCircle2 size={36} />
-                    </div>
-                    <h2 style={{ fontSize: '1.4rem', color: 'var(--color-success)', fontWeight: 800 }}>
-                      ACCESO AUTORIZADO ✅
-                    </h2>
-                    <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Vehículo operativo y al día con sus pautas</p>
-                  </>
-                )}
-              </div>
-
-              {/* Panel de Turno y Operación (Check-in / Check-out) */}
-              {result.vehicle.activo === false ? (
-                <div style={{ padding: '0.85rem 1rem', backgroundColor: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.25)', borderRadius: 'var(--radius-md)', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                  <ShieldAlert size={22} color="var(--color-danger)" style={{ flexShrink: 0 }} />
-                  <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-                    <strong style={{ color: 'var(--color-danger)', display: 'block', marginBottom: '2px' }}>
-                      🚫 Móvil Fuera de Servicio
-                    </strong>
-                    El Administrador tiene este vehículo inhabilitado. No está autorizado para iniciar turnos ni circular.
-                  </div>
-                </div>
-              ) : activeShift && activeShift.vehiculoId === result.vehicle.id && activeShift.conductorId === user?.id ? (
-                <div style={{ padding: '0.85rem 1rem', backgroundColor: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.25)', borderRadius: 'var(--radius-md)', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-                    <span style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: '#10b981', display: 'inline-block', boxShadow: '0 0 8px #10b981' }}></span>
-                    <div>
-                      <div style={{ color: '#10b981', fontWeight: 700, fontSize: '0.88rem' }}>Móvil asignado a tu turno en curso</div>
-                      <div style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', marginTop: '2px' }}>
-                        Los controles de check-out, odómetro satelital y reporte de fallas están activos en el panel superior.
-                      </div>
-                    </div>
-                  </div>
-                  <span className="badge badge-success" style={{ fontSize: '0.72rem', padding: '0.25rem 0.6rem' }}>🟢 En Ruta</span>
-                </div>
-              ) : activeShift && activeShift.vehiculoId === result.vehicle.id && activeShift.conductorId !== user?.id ? (
-                <div style={{ padding: '1rem', backgroundColor: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: 'var(--radius-md)', marginBottom: '1.25rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <Clock size={18} color="#f59e0b" />
-                      <strong style={{ color: '#f59e0b', fontSize: '0.9rem' }}>Móvil Ocupado por {activeShift.conductorNombre}</strong>
-                    </div>
-                    <span className="badge badge-warning" style={{ fontSize: '0.65rem' }}>En Turno</span>
-                  </div>
-                  <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
-                    <div>⏱️ Turno iniciado: <strong>{activeShift.fechaInicioStr}</strong></div>
-                    <div>🔢 Km al recibir: <strong>{activeShift.kmInicial?.toLocaleString()} km</strong></div>
-                    {activeShift.kmGpsAcumulados > 0 && (
-                      <div style={{ color: '#10b981', fontWeight: 600 }}>🛰️ GPS en ruta: +{activeShift.kmGpsAcumulados.toFixed(2)} km</div>
-                    )}
-                  </div>
-                  {(isAdmin || isMecanico) ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                      <button 
-                        type="button" 
-                        className="btn btn-warning" 
-                        style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', fontWeight: 700 }}
-                        onClick={handleOpenEndShiftModal}
-                      >
-                        <StopCircle size={18} />
-                        🛑 Forzar Cierre Administrativo de Turno (Supervisor)
-                      </button>
-                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textAlign: 'center' }}>
-                        Tienes privilegios de supervisión para cerrar el turno si el chofer olvidó marcar o se retiró.
-                      </span>
-                    </div>
-                  ) : (
-                    <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0 }}>
-                      Este vehículo está siendo conducido actualmente por <strong>{activeShift.conductorNombre}</strong>. Podrás tomarlo una vez que el colega entregue el turno o supervisión lo libere.
-                    </p>
-                  )}
-                </div>
-              ) : (
-                <div style={{ padding: '1rem', backgroundColor: 'rgba(56, 189, 248, 0.08)', border: '1px solid rgba(56, 189, 248, 0.25)', borderRadius: 'var(--radius-md)', marginBottom: '1.25rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <Sparkles size={18} color="#38bdf8" />
-                      <strong style={{ color: 'var(--text-primary)', fontSize: '0.9rem' }}>Vehículo Disponible en Patio / Base</strong>
-                    </div>
-                    <span className="badge badge-info" style={{ fontSize: '0.65rem' }}>Libre</span>
-                  </div>
-                  <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.75rem' }}>
-                    ¿Vas a operar este móvil en tu turno? Realiza el Check-in rápido en 15 segundos para registrar odómetro, combustible y salir a ruta.
-                  </p>
-                  <button 
-                    type="button" 
-                    className="btn btn-primary" 
-                    style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', fontWeight: 700 }}
-                    onClick={() => {
-                      setShiftKmInicial(result.vehicle.kilometraje || 0);
-                      setIsOdometerBroken(false);
-                      if (result.vehicle.propietarioId) {
-                        setSelectedDriverId(result.vehicle.propietarioId);
-                      } else if (user?.role === 'CONDUCTOR') {
-                        setSelectedDriverId(user.id);
-                      } else {
-                        setSelectedDriverId('');
-                      }
-                      setShowStartShiftModal(true);
-                    }}
-                  >
-                    <Car size={18} />
-                    🚗 Iniciar Turno con este Móvil (Check-in)
-                  </button>
-                </div>
-              )}
-
-              {/* Vehicle Specifications */}
-              <h4 style={{ fontSize: '0.95rem', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Car size={16} color="var(--primary)" />
-                Datos del Vehículo
-              </h4>
-              <div style={{ padding: '0.85rem 1rem', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', marginBottom: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
-                  <span style={{ color: 'var(--text-secondary)' }}>Marca / Modelo:</span>
-                  <strong style={{ color: 'var(--text-primary)' }}>{result.vehicle.marca} {result.vehicle.modelo}</strong>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
-                  <span style={{ color: 'var(--text-secondary)' }}>Patente:</span>
-                  <strong style={{ color: 'var(--primary)', letterSpacing: '0.05em' }}>{result.vehicle.patente || 'S/P'}</strong>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
-                  <span style={{ color: 'var(--text-secondary)' }}>Estado Operativo:</span>
-                  <strong style={{ color: result.vehicle.activo !== false ? 'var(--color-success)' : 'var(--color-danger)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: result.vehicle.activo !== false ? '#10b981' : '#ef4444' }}></span>
-                    {result.vehicle.activo !== false ? 'Encendido / Operativo' : 'Apagado / Fuera de servicio'}
-                  </strong>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
-                  <span style={{ color: 'var(--text-secondary)' }}>Año:</span>
-                  <strong style={{ color: 'var(--text-primary)' }}>{result.vehicle.anio}</strong>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
-                  <span style={{ color: 'var(--text-secondary)' }}>Kilometraje:</span>
-                  <strong style={{ color: 'var(--text-primary)' }}>{(result.vehicle.kilometraje || 0).toLocaleString()} km</strong>
-                </div>
-              </div>
-
-              {/* Owner / Estado de Asignación Information */}
-              {(result.owner || result.vehicle?.propietarioId || result.vehicle?.propietarioNombre) ? (
-                <>
-                  <h4 style={{ fontSize: '0.95rem', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <User size={16} color="var(--primary)" />
-                    Conductor / Responsable Asignado
-                  </h4>
-                  <div style={{ padding: '0.85rem 1rem', backgroundColor: 'rgba(59, 130, 246, 0.05)', borderRadius: 'var(--radius-md)', border: '1px solid rgba(59, 130, 246, 0.25)', marginBottom: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.4rem', fontSize: '0.85rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontWeight: 700, fontSize: '0.95rem', color: '#60a5fa' }}>
-                        👤 {result.owner?.fullName || result.owner?.username || result.vehicle?.propietarioNombre || 'Conductor Asignado'}
-                      </span>
-                      <span className="badge badge-info" style={{ fontSize: '0.68rem', fontWeight: 700 }}>🔵 Asignado en Turno</span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-secondary)' }}>
-                      <Phone size={14} /> {result.owner?.phoneNumber || 'Sin teléfono registrado'}
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-secondary)' }}>
-                      <Mail size={14} /> {result.owner?.email || 'Sin correo registrado'}
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <div style={{ padding: '0.85rem 1rem', backgroundColor: 'rgba(16, 185, 129, 0.08)', borderRadius: 'var(--radius-md)', border: '1px solid rgba(16, 185, 129, 0.3)', marginBottom: '1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.85rem' }}>
-                  <span style={{ color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <User size={16} color="#34d399" />
-                    Estado de Asignación:
-                  </span>
-                  <strong style={{ color: '#34d399', display: 'flex', alignItems: 'center', gap: '5px', fontWeight: 700, fontSize: '0.88rem' }}>
-                    <CheckCircle2 size={15} />
-                    🟢 Disponible (Sin Asignar)
-                  </strong>
-                </div>
-              )}
-
-              {/* Documentación Legal Obligatoria (Chile) */}
-              <div style={{ marginBottom: '1.25rem' }}>
-                <h4 style={{ fontSize: '0.95rem', marginBottom: '0.4rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-primary)' }}>
-                  <FileCheck size={16} color="var(--primary)" />
-                  Documentación Legal Vehicular (Chile)
-                </h4>
-                <DocumentosVehiculoSection 
-                  vehiculo={result.vehicle} 
-                  onOpenModal={(docData) => setSelectedDoc(docData)} 
-                />
-              </div>
-
-              {/* List of alerts */}
-              {hasAlerts && (
-                <div>
-                  <h4 style={{ fontSize: '0.95rem', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--color-danger)' }}>
-                    <AlertTriangle size={16} />
-                    Observaciones Técnicas ({result.vehicle.alertas.length})
-                  </h4>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                    {result.vehicle.alertas.map((alert, i) => (
-                      <div 
-                        key={i} 
-                        style={{ 
-                          padding: '0.75rem', 
-                          backgroundColor: 'rgba(239, 68, 68, 0.05)', 
-                          border: '1px solid rgba(239, 68, 68, 0.15)',
-                          borderRadius: 'var(--radius-sm)',
-                          fontSize: '0.8rem',
-                          color: 'var(--color-danger)'
-                        }}
-                      >
-                        {alert}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div 
-              className="glass-card" 
-              style={{ 
-                height: '100%', 
-                minHeight: '260px',
-                display: 'flex', 
-                flexDirection: 'column', 
-                alignItems: 'center', 
-                justifyContent: 'center', 
-                textAlign: 'center', 
-                color: 'var(--text-secondary)',
-                padding: '3rem 1.5rem',
-                borderStyle: 'dashed'
-              }}
-            >
-              <QrCode size={48} style={{ marginBottom: '1.25rem', opacity: 0.3 }} />
-              <h3 style={{ fontSize: '1.15rem' }}>Esperando Escaneo</h3>
-              <p style={{ fontSize: '0.85rem', marginTop: '0.5rem', maxWidth: '300px' }}>
-                Enciende la cámara y enfoca el código QR del vehículo, sube una foto o selecciona un vehículo para consultar su ficha técnica.
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
-
+      )}
+      
       {/* SECCIÓN AUDITABLE: MI HISTORIAL DE CONDUCCIÓN (MÓVILES CONDUCIDOS) */}
       <div className="glass-card" style={{ marginTop: '1.75rem', padding: '1.5rem', borderTop: '3px solid #38bdf8' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.25rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '1rem' }}>
