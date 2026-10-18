@@ -216,22 +216,37 @@ const Vehiculos = () => {
     fetchModels();
   }, [formMarca]);
 
-  // Helper para leer imágenes de documentos en base64
-  // Subir imagen de documento y extraer datos con OCR automáticamente
+  // Helper para leer imágenes y documentos PDF en base64 con extracción OCR inteligente
   const handleDocImageUploadWithOCR = (tipoDoc, imageSetter) => (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
+    const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
     const reader = new FileReader();
     reader.onloadend = async () => {
       const dataUrl = reader.result;
-      imageSetter(dataUrl);
+
+      // Si es una imagen común, previsualizarla inmediatamente
+      if (!isPdf) {
+        imageSetter(dataUrl);
+      }
 
       setOcrScanningDoc(tipoDoc);
-      setToast({ message: `🔍 Analizando y extrayendo datos de ${tipoDoc}...`, type: 'info' });
+      setToast({ 
+        message: `🔍 Analizando y leyendo ${tipoDoc}${isPdf ? ' (PDF)' : ''}...`, 
+        type: 'info' 
+      });
 
       try {
         const extracted = await autoEscanearDocumento(tipoDoc, dataUrl);
+
+        // Si el archivo fue un PDF y generó vista renderizada en canvas, usamos esa imagen
+        if (extracted.renderedImage) {
+          imageSetter(extracted.renderedImage);
+        } else if (isPdf) {
+          imageSetter(dataUrl);
+        }
+
         const campos = [];
 
         if (tipoDoc === 'PADRON') {
@@ -256,14 +271,17 @@ const Vehiculos = () => {
 
         if (campos.length > 0) {
           setToast({ 
-            message: `✨ ¡Lectura OCR automática exitosa! Se extrajeron: ${campos.join(', ')}.`, 
+            message: `✨ ¡Lectura ${isPdf ? 'PDF / ' : ''}OCR exitosa! Se extrajeron: ${campos.join(', ')}.`, 
             type: 'success' 
           });
         } else {
-          setToast({ message: 'Documento cargado correctamente.', type: 'info' });
+          setToast({ message: `Documento ${isPdf ? 'PDF ' : ''}cargado correctamente.`, type: 'info' });
         }
       } catch (err) {
-        console.error("Error al procesar OCR:", err);
+        console.error("Error al procesar OCR/PDF:", err);
+        if (isPdf) {
+          imageSetter(dataUrl);
+        }
         setToast({ message: 'Documento cargado correctamente.', type: 'info' });
       } finally {
         setOcrScanningDoc(null);
@@ -1707,12 +1725,12 @@ const Vehiculos = () => {
                     </div>
 
                     <div style={{ marginTop: '0.5rem' }}>
-                      <label className="form-label">Fotografía o Escaneo del Padrón</label>
+                      <label className="form-label">Copia del Padrón (PDF o Fotografía)</label>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
                         <label className="btn btn-secondary btn-sm" style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
                           <UploadCloud size={15} />
-                          <span>{ocrScanningDoc === 'PADRON' ? 'Leyendo OCR...' : (formPadronImagen ? 'Reemplazar Padrón' : 'Subir Foto Padrón (Auto-OCR)')}</span>
-                          <input type="file" accept="image/*" onChange={handleDocImageUploadWithOCR('PADRON', setFormPadronImagen)} style={{ display: 'none' }} />
+                          <span>{ocrScanningDoc === 'PADRON' ? 'Leyendo PDF/OCR...' : (formPadronImagen ? 'Reemplazar Padrón' : 'Subir Padrón (PDF/Foto - Auto-OCR)')}</span>
+                          <input type="file" accept="image/*,application/pdf,.pdf" onChange={handleDocImageUploadWithOCR('PADRON', setFormPadronImagen)} style={{ display: 'none' }} />
                         </label>
 
                         {formPadronImagen && (
@@ -1727,7 +1745,7 @@ const Vehiculos = () => {
                               onClick={() => setFormPadronImagen('')}
                               style={{ background: 'none', border: 'none', color: 'var(--color-danger)', cursor: 'pointer', fontSize: '0.75rem' }}
                             >
-                              Eliminar foto
+                              Eliminar documento
                             </button>
                           </div>
                         )}
@@ -1766,12 +1784,12 @@ const Vehiculos = () => {
                     </div>
 
                     <div style={{ marginTop: '0.5rem' }}>
-                      <label className="form-label">Fotografía o Escaneo del Certificado</label>
+                      <label className="form-label">Copia del Certificado PRT (PDF o Fotografía)</label>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
                         <label className="btn btn-secondary btn-sm" style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
                           <UploadCloud size={15} />
-                          <span>{ocrScanningDoc === 'PRT' ? 'Leyendo OCR...' : (formRevisionTecnicaImagen ? 'Reemplazar Foto' : 'Subir Foto PRT (Auto-OCR)')}</span>
-                          <input type="file" accept="image/*" onChange={handleDocImageUploadWithOCR('PRT', setFormRevisionTecnicaImagen)} style={{ display: 'none' }} />
+                          <span>{ocrScanningDoc === 'PRT' ? 'Leyendo PDF/OCR...' : (formRevisionTecnicaImagen ? 'Reemplazar Certificado' : 'Subir PRT (PDF/Foto - Auto-OCR)')}</span>
+                          <input type="file" accept="image/*,application/pdf,.pdf" onChange={handleDocImageUploadWithOCR('PRT', setFormRevisionTecnicaImagen)} style={{ display: 'none' }} />
                         </label>
 
                         {formRevisionTecnicaImagen && (
@@ -1786,7 +1804,7 @@ const Vehiculos = () => {
                               onClick={() => setFormRevisionTecnicaImagen('')}
                               style={{ background: 'none', border: 'none', color: 'var(--color-danger)', cursor: 'pointer', fontSize: '0.75rem' }}
                             >
-                              Eliminar foto
+                              Eliminar documento
                             </button>
                           </div>
                         )}
@@ -1836,12 +1854,12 @@ const Vehiculos = () => {
                     </div>
 
                     <div style={{ marginTop: '0.5rem' }}>
-                      <label className="form-label">Fotografía o Póliza SOAP Digital</label>
+                      <label className="form-label">Póliza SOAP Digital (PDF o Fotografía)</label>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
                         <label className="btn btn-secondary btn-sm" style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
                           <UploadCloud size={15} />
-                          <span>{ocrScanningDoc === 'SOAP' ? 'Leyendo OCR...' : (formSoapImagen ? 'Reemplazar Póliza' : 'Subir Foto SOAP (Auto-OCR)')}</span>
-                          <input type="file" accept="image/*" onChange={handleDocImageUploadWithOCR('SOAP', setFormSoapImagen)} style={{ display: 'none' }} />
+                          <span>{ocrScanningDoc === 'SOAP' ? 'Leyendo PDF/OCR...' : (formSoapImagen ? 'Reemplazar Póliza' : 'Subir SOAP (PDF/Foto - Auto-OCR)')}</span>
+                          <input type="file" accept="image/*,application/pdf,.pdf" onChange={handleDocImageUploadWithOCR('SOAP', setFormSoapImagen)} style={{ display: 'none' }} />
                         </label>
 
                         {formSoapImagen && (
@@ -1856,7 +1874,7 @@ const Vehiculos = () => {
                               onClick={() => setFormSoapImagen('')}
                               style={{ background: 'none', border: 'none', color: 'var(--color-danger)', cursor: 'pointer', fontSize: '0.75rem' }}
                             >
-                              Eliminar foto
+                              Eliminar documento
                             </button>
                           </div>
                         )}
@@ -1906,12 +1924,12 @@ const Vehiculos = () => {
                     </div>
 
                     <div style={{ marginTop: '0.5rem' }}>
-                      <label className="form-label">Fotografía o Comprobante del Permiso</label>
+                      <label className="form-label">Permiso de Circulación (PDF o Fotografía)</label>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
                         <label className="btn btn-secondary btn-sm" style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
                           <UploadCloud size={15} />
-                          <span>{ocrScanningDoc === 'PERMISO' ? 'Leyendo OCR...' : (formPermisoCirculacionImagen ? 'Reemplazar Comprobante' : 'Subir Foto Permiso (Auto-OCR)')}</span>
-                          <input type="file" accept="image/*" onChange={handleDocImageUploadWithOCR('PERMISO', setFormPermisoCirculacionImagen)} style={{ display: 'none' }} />
+                          <span>{ocrScanningDoc === 'PERMISO' ? 'Leyendo PDF/OCR...' : (formPermisoCirculacionImagen ? 'Reemplazar Permiso' : 'Subir Permiso (PDF/Foto - Auto-OCR)')}</span>
+                          <input type="file" accept="image/*,application/pdf,.pdf" onChange={handleDocImageUploadWithOCR('PERMISO', setFormPermisoCirculacionImagen)} style={{ display: 'none' }} />
                         </label>
 
                         {formPermisoCirculacionImagen && (
@@ -1926,7 +1944,7 @@ const Vehiculos = () => {
                               onClick={() => setFormPermisoCirculacionImagen('')}
                               style={{ background: 'none', border: 'none', color: 'var(--color-danger)', cursor: 'pointer', fontSize: '0.75rem' }}
                             >
-                              Eliminar foto
+                              Eliminar documento
                             </button>
                           </div>
                         )}

@@ -205,20 +205,34 @@ const Mantenimientos = () => {
     }));
   };
 
-  // Convertir imagen a Base64
+  // Convertir imagen o PDF a Base64 con renderizado
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
-    if (file.size > 2 * 1024 * 1024) { // Límite de 2MB
-      setToast({ message: 'La imagen no debe superar los 2MB de tamaño.', type: 'error' });
+    if (file.size > 8 * 1024 * 1024) { // Límite de 8MB
+      setToast({ message: 'El archivo no debe superar los 8MB de tamaño.', type: 'error' });
       e.target.value = null;
       return;
     }
 
+    const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
     const reader = new FileReader();
-    reader.onloadend = () => {
-      setFormFacturaImagen(reader.result);
+    reader.onloadend = async () => {
+      const dataUrl = reader.result;
+      if (isPdf) {
+        try {
+          const { extraerTextoYRenderDePdf } = await import('../services/documentParser');
+          const pdfRes = await extraerTextoYRenderDePdf(dataUrl);
+          if (pdfRes.renderedImage) {
+            setFormFacturaImagen(pdfRes.renderedImage);
+            return;
+          }
+        } catch (err) {
+          console.warn("Error procesando PDF de factura:", err);
+        }
+      }
+      setFormFacturaImagen(dataUrl);
     };
     reader.readAsDataURL(file);
   };
@@ -911,11 +925,11 @@ const Mantenimientos = () => {
 
               {/* Imagen Factura/Boleta */}
               <div className="form-group">
-                <label className="form-label">Imagen de la Factura o Comprobante</label>
+                <label className="form-label">Factura o Comprobante (PDF o Imagen)</label>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                   <input 
                     type="file" 
-                    accept="image/*"
+                    accept="image/*,application/pdf,.pdf"
                     onChange={handleImageChange}
                     style={{ fontSize: '0.85rem' }}
                   />

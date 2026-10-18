@@ -17,21 +17,37 @@ const DocumentModal = ({ documento, onClose, onUploadImage }) => {
 
   const handleDownload = () => {
     if (!documento.imagen) return;
+    const isPdf = typeof documento.imagen === 'string' && documento.imagen.includes('application/pdf');
+    const ext = isPdf ? 'pdf' : 'png';
     const link = document.createElement('a');
     link.href = documento.imagen;
-    link.download = `${documento.tipo || 'Documento'}_${documento.patente || 'Vehiculo'}.png`;
+    link.download = `${documento.tipo || 'Documento'}_${documento.patente || 'Vehiculo'}.${ext}`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
-  const handleFileChange = (e) => {
+  const handleFileChange = async (e) => {
     const file = e.target.files[0];
     if (!file || !onUploadImage) return;
 
+    const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
     const reader = new FileReader();
-    reader.onloadend = () => {
-      onUploadImage(reader.result);
+    reader.onloadend = async () => {
+      const dataUrl = reader.result;
+      if (isPdf) {
+        try {
+          const { extraerTextoYRenderDePdf } = await import('../services/documentParser');
+          const pdfRes = await extraerTextoYRenderDePdf(dataUrl);
+          if (pdfRes.renderedImage) {
+            onUploadImage(pdfRes.renderedImage);
+            return;
+          }
+        } catch (err) {
+          console.warn("Error renderizando PDF en modal:", err);
+        }
+      }
+      onUploadImage(dataUrl);
     };
     reader.readAsDataURL(file);
   };
@@ -241,8 +257,8 @@ const DocumentModal = ({ documento, onClose, onUploadImage }) => {
               {onUploadImage && (
                 <label className="btn btn-secondary btn-sm" style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
                   <UploadCloud size={16} />
-                  <span>Subir Foto del Documento</span>
-                  <input type="file" accept="image/*" onChange={handleFileChange} style={{ display: 'none' }} />
+                  <span>Subir Documento (PDF o Foto)</span>
+                  <input type="file" accept="image/*,application/pdf,.pdf" onChange={handleFileChange} style={{ display: 'none' }} />
                 </label>
               )}
             </div>
@@ -255,8 +271,8 @@ const DocumentModal = ({ documento, onClose, onUploadImage }) => {
             {documento.imagen && onUploadImage && (
               <label className="btn btn-secondary btn-sm" style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem' }}>
                 <UploadCloud size={14} />
-                <span>Reemplazar Foto</span>
-                <input type="file" accept="image/*" onChange={handleFileChange} style={{ display: 'none' }} />
+                <span>Reemplazar Documento</span>
+                <input type="file" accept="image/*,application/pdf,.pdf" onChange={handleFileChange} style={{ display: 'none' }} />
               </label>
             )}
           </div>
