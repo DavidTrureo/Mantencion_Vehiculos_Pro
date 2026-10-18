@@ -1856,6 +1856,11 @@ const ScanQR = () => {
                 </div>
                 <h2 style={{ fontSize: '1.35rem', fontWeight: 800, margin: '2px 0 0 0' }}>
                   {activeShift.vehiculoNombre} · <span style={{ color: '#38bdf8' }}>{activeShift.patente}</span>
+                  {result?.vehicle?.anio ? (
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 500, marginLeft: '8px' }}>
+                      ({result.vehicle.anio})
+                    </span>
+                  ) : null}
                 </h2>
                 <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
                   Conductor: <strong>{activeShift.conductorNombre}</strong> · Turno iniciado: {activeShift.fechaInicioStr}
@@ -1951,17 +1956,65 @@ const ScanQR = () => {
               </div>
             )}
           </div>
+          <div style={{ marginTop: '1.25rem', paddingTop: '1.25rem', borderTop: '1px solid rgba(16, 185, 129, 0.25)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <FileCheck size={18} color="#34d399" />
+                <h4 style={{ fontSize: '0.95rem', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
+                  Documentación Legal del Móvil (Chile)
+                </h4>
+              </div>
+              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                Disponible para control policial / fiscalización
+              </span>
+            </div>
+
+            {result?.vehicle ? (
+              <DocumentosVehiculoSection 
+                vehiculo={result.vehicle} 
+                onOpenModal={(docData) => setSelectedDoc(docData)} 
+              />
+            ) : (
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'center', padding: '0.5rem' }}>
+                Cargando certificados vigentes...
+              </div>
+            )}
+          </div>
+
+          {/* Observaciones Técnicas / Alertas si existen */}
+          {hasAlerts && (
+            <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid rgba(239, 68, 68, 0.2)' }}>
+              <h4 style={{ fontSize: '0.9rem', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--color-danger)' }}>
+                <AlertTriangle size={15} />
+                Observaciones Técnicas Registradas ({result.vehicle.alertas.length})
+              </h4>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                {result.vehicle.alertas.map((alert, i) => (
+                  <div 
+                    key={i} 
+                    style={{ 
+                      padding: '0.6rem 0.8rem', 
+                      backgroundColor: 'rgba(239, 68, 68, 0.08)', 
+                      border: '1px solid rgba(239, 68, 68, 0.2)',
+                      borderRadius: 'var(--radius-sm)',
+                      fontSize: '0.78rem',
+                      color: '#fca5a5'
+                    }}
+                  >
+                    {alert}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
       {/* SI HAY UN TURNO ACTIVO: Enfoque 100% en la Operación y Móvil en Ruta */}
       {activeShift ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-          {/* Ficha técnica y documentos legales del móvil que se está conduciendo */}
-          {result?.vehicle && renderVehicleDetailsCard(true)}
-
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           {/* Botón colapsable para relevo de vehículo / emergencias */}
-          <div style={{ textAlign: 'center', margin: '0.5rem 0' }}>
+          <div style={{ textAlign: 'center', margin: '0.25rem 0' }}>
             <button
               type="button"
               className="btn btn-secondary btn-sm"
