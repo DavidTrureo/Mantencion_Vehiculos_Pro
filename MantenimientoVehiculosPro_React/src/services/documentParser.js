@@ -244,14 +244,17 @@ export function parsearRevisionTecnica(texto) {
   const t = texto.toUpperCase();
   const res = {};
 
-  // Número / Folio de Certificado
-  const numMatch = t.match(/(?:CERTIFICADO|FOLIO)[^\w:]*:[^\w]*([A-Z0-9\-]{4,20})/i) ||
+  // Número / Folio de Certificado (con o sin dos puntos, ej: CERTIFICADO N° 123456, PRT-8841)
+  const numMatch = t.match(/(?:CERTIFICADO|FOLIO)\s*(?:N[°º]|NRO|NUMERO|\.)\s*:?\s*([A-Z0-9\-]{4,20})/i) ||
+                   t.match(/(?:CERTIFICADO|FOLIO)[^\w:]*:[^\w]*([A-Z0-9\-]{4,20})/i) ||
                    t.match(/\b(PRT[-A-Z0-9]{4,20})\b/) ||
-                   t.match(/N[°º][^\w]*([0-9\-]{5,15})/i);
+                   t.match(/N[°º]\s*([0-9\-]{5,15})/i);
   if (numMatch) res.revisionTecnicaNumero = numMatch[1].trim();
 
-  // Vencimiento
-  const vencMatch = t.match(/(?:VENCIMIENTO|VENCE|HASTA|PR[ÓO]XIMO)[^\d]*(\d{1,2}\s*[-\/\.]\s*\d{1,2}\s*[-\/\.]\s*\d{2,4}|\d{4}\s*[-\/\.]\s*\d{1,2}\s*[-\/\.]\s*\d{1,2})/i) ||
+  // Vencimiento PRT:
+  // Se prioriza la fecha de vencimiento/próximo control por sobre la fecha de inspección/otorgamiento
+  const vencMatch = t.match(/(?:VENCIMIENTO|VENCE|HASTA|PR[ÓO]XIMO\s+CONTROL|PR[ÓO]XIMA\s+REVISI[ÓO]N)[^\d]*(\d{1,2}\s*[-\/\.]\s*\d{1,2}\s*[-\/\.]\s*\d{2,4}|\d{4}\s*[-\/\.]\s*\d{1,2}\s*[-\/\.]\s*\d{1,2})/i) ||
+                    t.match(/(?:VÁLIDO|VALIDO)\s+HASTA[^\d]*(\d{1,2}\s*[-\/\.]\s*\d{1,2}\s*[-\/\.]\s*\d{2,4}|\d{4}\s*[-\/\.]\s*\d{1,2}\s*[-\/\.]\s*\d{1,2})/i) ||
                     t.match(/(\d{1,2}\s+DE\s+[A-Z]+\s+(?:DEL?\s+)?20\d\d)/i);
   if (vencMatch) {
     res.revisionTecnicaVencimiento = normalizarFecha(vencMatch[1]);
@@ -275,16 +278,50 @@ export function parsearSoap(texto) {
     }
   }
 
-  // Póliza
-  const polMatch = t.match(/(?:P[ÓO]LIZA|N[ÚU]MERO)[^\w:]*:[^\w]*([A-Z0-9\-]{5,25})/i) ||
-                   t.match(/\b(POL[-A-Z0-9]{5,25})\b/);
-  if (polMatch) res.soapPoliza = polMatch[1].trim();
+  // Póliza:
+  // Soporta: POLIZA N° 7101728445, PÓLIZA N°: 7101728445, POLIZA: 7101728445, N° POLIZA 7101728445, POL-9988123
+  const polMatch = t.match(/(?:POLIZA|P[ÓO]LIZA)\s*(?:N[°º]|NRO|NUMERO|\.)\s*:?\s*([0-9A-Z\-]{6,20})/i) ||
+                   t.match(/(?:POLIZA|P[ÓO]LIZA)\s*:\s*([0-9A-Z\-]{6,20})/i) ||
+                   t.match(/N[°º]\s*(?:DE\s*)?(?:POLIZA|P[ÓO]LIZA)\s*:?\s*([0-9A-Z\-]{6,20})/i) ||
+                   t.match(/\b(POL[-A-Z0-9]{5,25})\b/) ||
+                   t.match(/(?:P[ÓO]LIZA|POLIZA)[^\w:]*:[^\w]*([A-Z0-9\-]{5,25})/i);
+  if (polMatch) {
+    res.soapPoliza = polMatch[1].trim();
+  }
 
-  // Vencimiento SOAP (En Chile vence el 31 de marzo)
-  const vencMatch = t.match(/(?:T[ÉE]RMINO|VENCE|HASTA|VIGENCIA)[^\d]*(\d{1,2}\s*[-\/\.]\s*\d{1,2}\s*[-\/\.]\s*\d{2,4})/i) ||
-                    t.match(/(31\s*[-\/\.]\s*03\s*[-\/\.]\s*20\d\d)/);
-  if (vencMatch) {
-    res.soapVencimiento = normalizarFecha(vencMatch[1]);
+  // Patente si aparece en el certificado (ej: INSCRIPCIÓN R.V.M. FWKR41-6)
+  const patenteMatch = t.match(/(?:PLACA|PATENTE|PLACA ÚNICA|INSCRIPCI[ÓO]N(?:\s*R\.?V\.?M\.?)?)[^\w]*([A-Z]{2,4})[·\.\-\s]+([0-9]{2,4})/i) ||
+                       t.match(/\b([B-DF-HJ-NP-TV-Z]{4})[·\.\-\s]?([0-9]{2})\b/);
+  if (patenteMatch) {
+    res.patente = `${patenteMatch[1]}${patenteMatch[2]}`.replace(/[^A-Z0-9]/g, '');
+  }
+
+  // Vencimiento SOAP:
+  // En Chile los SOAP tienen Fecha de Otorgamiento / Inicio (ej: 01/04/YYYY) y Fecha de Vencimiento (31/03/YYYY).
+  // La fecha que debe registrarse como vigencia oficial es la FECHA DE VENCIMIENTO (31 de marzo).
+
+  // Caso 1: Estructura de tabla "RIGE DESDE HASTA \n 01/04/2026 31/03/2027"
+  const tableMatch = t.match(/(?:RIGE\s*)?DESDE\s+HASTA[\s\n\r]+(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})[\s\n\r]+(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i);
+  if (tableMatch) {
+    res.soapVencimiento = normalizarFecha(tableMatch[2]);
+  } else {
+    // Caso 2: Formato en línea "DESDE 01/04/2026 HASTA 31/03/2027"
+    const inlineMatch = t.match(/DESDE[^\d]*(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})[^\d]*HASTA[^\d]*(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i);
+    if (inlineMatch) {
+      res.soapVencimiento = normalizarFecha(inlineMatch[2]);
+    } else {
+      // Caso 3: Fecha 31 de marzo (vencimiento legal del SOAP en Chile)
+      const marzoMatch = t.match(/(31\s*[-\/\.]\s*03\s*[-\/\.]\s*20\d\d)/);
+      if (marzoMatch) {
+        res.soapVencimiento = normalizarFecha(marzoMatch[1]);
+      } else {
+        // Caso 4: HASTA individual no precedido de DESDE
+        const vencMatch = t.match(/(?:HASTA|T[ÉE]RMINO|VENCE|VENCIMIENTO)[^\d]*(\d{1,2}\s*[-\/\.]\s*\d{1,2}\s*[-\/\.]\s*\d{2,4})/i);
+        if (vencMatch) {
+          res.soapVencimiento = normalizarFecha(vencMatch[1]);
+        }
+      }
+    }
   }
 
   return res;
@@ -305,17 +342,23 @@ export function parsearPermisoCirculacion(texto) {
     }
   }
 
-  // Folio
-  const folioMatch = t.match(/(?:FOLIO|COMPROBANTE|PERMISO)[^\w:]*:[^\w]*([A-Z0-9\-]{4,25})/i) ||
+  // Folio / Comprobante de pago (ej: FOLIO N° 12345, COMPROBANTE N° 88412)
+  const folioMatch = t.match(/(?:FOLIO|COMPROBANTE|PERMISO)\s*(?:N[°º]|NRO|NUMERO|\.)\s*:?\s*([A-Z0-9\-]{4,25})/i) ||
+                     t.match(/(?:FOLIO|COMPROBANTE|PERMISO)[^\w:]*:[^\w]*([A-Z0-9\-]{4,25})/i) ||
                      t.match(/\b(FOL[-A-Z0-9]{4,25})\b/) ||
                      t.match(/\b(PC[-A-Z0-9]{4,20})\b/);
   if (folioMatch) res.permisoCirculacionFolio = folioMatch[1].trim();
 
-  // Vencimiento Permiso (normalmente 31 de marzo en Chile)
-  const vencMatch = t.match(/(?:VENCE|VENCIMIENTO|PAGO)[^\d]*(\d{1,2}\s*[-\/\.]\s*\d{1,2}\s*[-\/\.]\s*\d{2,4})/i) ||
-                    t.match(/(31\s*[-\/\.]\s*03\s*[-\/\.]\s*20\d\d)/);
-  if (vencMatch) {
-    res.permisoCirculacionVencimiento = normalizarFecha(vencMatch[1]);
+  // Vencimiento Permiso:
+  // En Chile vence el 31 de marzo. Evitar capturar la fecha de pago como vencimiento.
+  const marzoMatch = t.match(/(31\s*[-\/\.]\s*03\s*[-\/\.]\s*20\d\d)/);
+  if (marzoMatch) {
+    res.permisoCirculacionVencimiento = normalizarFecha(marzoMatch[1]);
+  } else {
+    const vencMatch = t.match(/(?:VENCE|VENCIMIENTO|VÁLIDO\s+HASTA|VALIDO\s+HASTA)[^\d]*(\d{1,2}\s*[-\/\.]\s*\d{1,2}\s*[-\/\.]\s*\d{2,4})/i);
+    if (vencMatch) {
+      res.permisoCirculacionVencimiento = normalizarFecha(vencMatch[1]);
+    }
   }
 
   return res;

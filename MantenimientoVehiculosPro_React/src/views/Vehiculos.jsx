@@ -263,6 +263,7 @@ const Vehiculos = () => {
           if (extracted.soapAseguradora) { setFormSoapAseguradora(extracted.soapAseguradora); campos.push(`Aseguradora (${extracted.soapAseguradora})`); }
           if (extracted.soapPoliza) { setFormSoapPoliza(extracted.soapPoliza); campos.push(`Póliza (${extracted.soapPoliza})`); }
           if (extracted.soapVencimiento) { setFormSoapVencimiento(extracted.soapVencimiento); campos.push(`Vence (${extracted.soapVencimiento})`); }
+          if (extracted.patente && !formPatente) { setFormPatente(extracted.patente); campos.push(`Patente (${extracted.patente})`); }
         } else if (tipoDoc === 'PERMISO') {
           if (extracted.permisoCirculacionMunicipalidad) { setFormPermisoCirculacionMunicipalidad(extracted.permisoCirculacionMunicipalidad); campos.push(`Muni (${extracted.permisoCirculacionMunicipalidad})`); }
           if (extracted.permisoCirculacionFolio) { setFormPermisoCirculacionFolio(extracted.permisoCirculacionFolio); campos.push(`Folio (${extracted.permisoCirculacionFolio})`); }
