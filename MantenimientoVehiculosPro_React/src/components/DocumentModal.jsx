@@ -15,6 +15,9 @@ import {
   RotateCcw,
   Share2
 } from 'lucide-react';
+import { Capacitor } from '@capacitor/core';
+import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
 import { cleanDocVal } from './DocumentosVehiculoSection';
 
 const DocumentModal = ({ documento, onClose, onUploadImage }) => {
@@ -44,10 +47,10 @@ const DocumentModal = ({ documento, onClose, onUploadImage }) => {
   // Mostrar mensaje temporal (Toast interno)
   const showFeedback = (msg) => {
     setToastMsg(msg);
-    setTimeout(() => setToastMsg(null), 3000);
+    setTimeout(() => setToastMsg(null), 3500);
   };
 
-  // Descarga y compartir ultra-robusto (compatible con Android Capacitor, Chrome Mobile y Web)
+  // Descarga y compartir nativo ultra-robusto (Android Capacitor + Navegador Web)
   const handleDownload = async () => {
     if (!documento.imagen) return;
     setDownloading(true);
@@ -57,7 +60,34 @@ const DocumentModal = ({ documento, onClose, onUploadImage }) => {
     const nombreArchivo = `${documento.tipo || 'Documento'}_${documento.patente || 'Vehiculo'}.${ext}`;
 
     try {
-      // 1. Convertir Base64 / Data URL a Blob nativo
+      // 1. SI ESTAMOS EN DISPOSITIVO MÓVIL NATIVO (Android / iOS con Capacitor)
+      if (Capacitor.isNativePlatform()) {
+        let base64Clean = documento.imagen;
+        if (base64Clean.includes(',')) {
+          base64Clean = base64Clean.split(',')[1];
+        }
+
+        // Escribir archivo binario en el almacenamiento caché nativo
+        const saved = await Filesystem.writeFile({
+          path: nombreArchivo,
+          data: base64Clean,
+          directory: Directory.Cache
+        });
+
+        // Lanzar diálogo nativo de Android: Guardar en Descargas, Drive, Compartir en WhatsApp, etc.
+        await Share.share({
+          title: nombreArchivo,
+          text: `Copia oficial de ${documento.titulo || 'documento'} - Patente ${documento.patente || ''}`,
+          files: [saved.uri],
+          dialogTitle: 'Descargar o Guardar Documento'
+        });
+
+        showFeedback('Selecciona "Guardar en el dispositivo" o tu app favorita.');
+        setDownloading(false);
+        return;
+      }
+
+      // 2. SI ESTAMOS EN NAVEGADOR WEB (Desktop o Chrome Web)
       let blob;
       if (documento.imagen.startsWith('data:')) {
         const parts = documento.imagen.split(',');
@@ -76,35 +106,10 @@ const DocumentModal = ({ documento, onClose, onUploadImage }) => {
         blob = await response.blob();
       }
 
-      // 2. Si está en dispositivo móvil (Android WebView / Capacitor), invocar Web Share API nativo
-      if (navigator.canShare) {
-        try {
-          const file = new File([blob], nombreArchivo, { type: blob.type });
-          if (navigator.canShare({ files: [file] })) {
-            await navigator.share({
-              files: [file],
-              title: nombreArchivo,
-              text: `Copia oficial de ${documento.titulo || 'documento'} - Patente ${documento.patente || ''}`
-            });
-            showFeedback('Documento compartido / descargado correctamente.');
-            setDownloading(false);
-            return;
-          }
-        } catch (shareErr) {
-          if (shareErr.name === 'AbortError') {
-            setDownloading(false);
-            return; // El usuario cerró el diálogo de compartir
-          }
-          console.warn("navigator.share falló, intentando descarga con enlace directo:", shareErr);
-        }
-      }
-
-      // 3. Descarga vía Blob URL para navegador Web / Desktop
       const blobUrl = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = blobUrl;
       link.download = nombreArchivo;
-      link.target = '_blank';
       document.body.appendChild(link);
       link.click();
 
@@ -112,23 +117,17 @@ const DocumentModal = ({ documento, onClose, onUploadImage }) => {
         document.body.removeChild(link);
         URL.revokeObjectURL(blobUrl);
         setDownloading(false);
-        showFeedback('Descarga iniciada exitosamente.');
-      }, 800);
+        showFeedback('Descarga completada en tu equipo.');
+      }, 600);
+
     } catch (err) {
       console.error("Error al procesar descarga de documento:", err);
-      // Fallback final con dataUrl directa
-      try {
-        const link = document.createElement('a');
-        link.href = documento.imagen;
-        link.download = nombreArchivo;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        showFeedback('Descarga iniciada.');
-      } catch (e) {
-        console.error("Error en fallback de descarga:", e);
-        showFeedback('No se pudo descargar automáticamente.');
+      // Si el usuario simplemente canceló la hoja de compartir en Android, no mostrar error
+      if (err.name === 'AbortError' || (err.message && err.message.toLowerCase().includes('cancel'))) {
+        setDownloading(false);
+        return;
       }
+      showFeedback('No se pudo procesar la descarga.');
       setDownloading(false);
     }
   };
