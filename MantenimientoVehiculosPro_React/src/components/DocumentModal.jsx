@@ -10,6 +10,7 @@ import {
   CheckCircle2, 
   UploadCloud 
 } from 'lucide-react';
+import { cleanDocVal } from './DocumentosVehiculoSection';
 
 const DocumentModal = ({ documento, onClose, onUploadImage }) => {
   if (!documento) return null;
@@ -149,7 +150,15 @@ const DocumentModal = ({ documento, onClose, onUploadImage }) => {
             </span>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginTop: '0.2rem', fontWeight: 600, color: documento.estado === 'vencido' ? 'var(--color-danger)' : 'var(--text-primary)' }}>
               <Calendar size={14} />
-              <span>{documento.fechaVencimiento || 'No registrada'}</span>
+              <span>
+                {(() => {
+                  const cleaned = cleanDocVal(documento.fechaVencimiento);
+                  if (!cleaned || cleaned.toLowerCase().includes('inválida') || cleaned.toLowerCase().includes('invalida')) {
+                    return 'No registrada / Pendiente';
+                  }
+                  return cleaned;
+                })()}
+              </span>
             </div>
           </div>
 
@@ -159,7 +168,7 @@ const DocumentModal = ({ documento, onClose, onUploadImage }) => {
             </span>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginTop: '0.2rem', fontWeight: 600, color: 'var(--text-primary)' }}>
               <ShieldCheck size={14} color="var(--primary)" />
-              <span>{documento.numero || 'Sin especificar'}</span>
+              <span>{cleanDocVal(documento.numero) || 'Sin especificar'}</span>
             </div>
           </div>
 
@@ -170,18 +179,18 @@ const DocumentModal = ({ documento, onClose, onUploadImage }) => {
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginTop: '0.2rem', fontWeight: 600, color: 'var(--text-primary)' }}>
               <Building size={14} color="var(--text-muted)" />
               <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {documento.emisor || 'Sin especificar'}
+                {cleanDocVal(documento.emisor) || 'Sin especificar'}
               </span>
             </div>
           </div>
 
-          {documento.detallesExtra && documento.detallesExtra.filter(d => d.valor).map((det, i) => (
+          {documento.detallesExtra && documento.detallesExtra.filter(d => cleanDocVal(d.valor)).map((det, i) => (
             <div key={i}>
               <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'block' }}>
                 {det.label}
               </span>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginTop: '0.2rem', fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'monospace' }}>
-                <span>{det.valor}</span>
+                <span>{cleanDocVal(det.valor)}</span>
               </div>
             </div>
           ))}

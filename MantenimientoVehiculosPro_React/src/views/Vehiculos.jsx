@@ -26,7 +26,7 @@ import {
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import Toast from '../components/Toast';
 import DocumentModal from '../components/DocumentModal';
-import { evaluarDocumento } from '../components/DocumentosVehiculoSection';
+import { evaluarDocumento, evaluarEstadoDocumentacionVehiculo, cleanDocVal } from '../components/DocumentosVehiculoSection';
 import { autoEscanearDocumento } from '../services/documentParser';
 import QRCode from 'qrcode';
 
@@ -275,22 +275,27 @@ const Vehiculos = () => {
   // Abrir visor de documento desde la tarjeta
   const handleViewDocFromCard = (v, tipo) => {
     if (tipo === 'PADRON') {
+      const padronValido = Boolean(
+        cleanDocVal(v.padronFolio) || 
+        cleanDocVal(v.padronImagen) || 
+        cleanDocVal(v.padronVin)
+      );
       setSelectedDoc({
         titulo: 'Certificado de Inscripción de Vehículos Motorizados (Padrón)',
         tipo: 'PADRON',
         patente: v.patente,
-        fechaVencimiento: v.padronFechaEmision ? `Emitido: ${v.padronFechaEmision}` : 'Documento Permanente',
-        numero: v.padronFolio || v.padronVin,
+        fechaVencimiento: cleanDocVal(v.padronFechaEmision) ? `Emitido: ${cleanDocVal(v.padronFechaEmision)}` : 'Documento Permanente',
+        numero: cleanDocVal(v.padronFolio) || cleanDocVal(v.padronVin) || 'Sin registrar',
         numeroLabel: 'Folio / N° Chasis (VIN)',
         emisor: 'Registro Civil e Identificación de Chile',
         emisorLabel: 'Entidad Emisora',
-        imagen: v.padronImagen,
-        estado: (v.padronFolio || v.padronImagen || v.padronVin) ? 'vigente' : 'sin_registrar',
+        imagen: cleanDocVal(v.padronImagen),
+        estado: padronValido ? 'vigente' : 'sin_registrar',
         detallesExtra: [
-          { label: 'N° Chasis / VIN', valor: v.padronVin },
-          { label: 'N° Motor', valor: v.padronMotor },
-          { label: 'Fecha Emisión', valor: v.padronFechaEmision }
-        ]
+          { label: 'N° Chasis / VIN', valor: cleanDocVal(v.padronVin) },
+          { label: 'N° Motor', valor: cleanDocVal(v.padronMotor) },
+          { label: 'Fecha Emisión', valor: cleanDocVal(v.padronFechaEmision) }
+        ].filter(d => d.valor)
       });
     } else if (tipo === 'PRT') {
       const st = evaluarDocumento(v.revisionTecnicaVencimiento);
@@ -298,12 +303,12 @@ const Vehiculos = () => {
         titulo: 'Certificado de Revisión Técnica (PRT)',
         tipo: 'PRT',
         patente: v.patente,
-        fechaVencimiento: v.revisionTecnicaVencimiento,
-        numero: v.revisionTecnicaNumero,
+        fechaVencimiento: cleanDocVal(v.revisionTecnicaVencimiento) || 'Sin registrar',
+        numero: cleanDocVal(v.revisionTecnicaNumero) || 'Sin registrar',
         numeroLabel: 'N° Certificado / Planta',
-        emisor: v.revisionTecnicaNumero ? `Planta ${v.revisionTecnicaNumero}` : 'Planta Homologada',
+        emisor: cleanDocVal(v.revisionTecnicaNumero) ? `Planta ${cleanDocVal(v.revisionTecnicaNumero)}` : 'Planta Homologada',
         emisorLabel: 'Planta PRT',
-        imagen: v.revisionTecnicaImagen,
+        imagen: cleanDocVal(v.revisionTecnicaImagen),
         estado: st.estado,
         diasRestantes: st.dias
       });
@@ -313,12 +318,12 @@ const Vehiculos = () => {
         titulo: 'Seguro Obligatorio (SOAP)',
         tipo: 'SOAP',
         patente: v.patente,
-        fechaVencimiento: v.soapVencimiento,
-        numero: v.soapPoliza,
+        fechaVencimiento: cleanDocVal(v.soapVencimiento) || 'Sin registrar',
+        numero: cleanDocVal(v.soapPoliza) || 'Sin registrar',
         numeroLabel: 'N° de Póliza',
-        emisor: v.soapAseguradora,
+        emisor: cleanDocVal(v.soapAseguradora) || 'Compañía Aseguradora',
         emisorLabel: 'Compañía Aseguradora',
-        imagen: v.soapImagen,
+        imagen: cleanDocVal(v.soapImagen),
         estado: st.estado,
         diasRestantes: st.dias
       });
@@ -328,12 +333,12 @@ const Vehiculos = () => {
         titulo: 'Permiso de Circulación',
         tipo: 'PERMISO',
         patente: v.patente,
-        fechaVencimiento: v.permisoCirculacionVencimiento,
-        numero: v.permisoCirculacionFolio,
+        fechaVencimiento: cleanDocVal(v.permisoCirculacionVencimiento) || 'Sin registrar',
+        numero: cleanDocVal(v.permisoCirculacionFolio) || 'Sin registrar',
         numeroLabel: 'Folio / Comprobante de Pago',
-        emisor: v.permisoCirculacionMunicipalidad,
+        emisor: cleanDocVal(v.permisoCirculacionMunicipalidad) || 'Municipalidad Emisora',
         emisorLabel: 'Municipalidad Emisora',
-        imagen: v.permisoCirculacionImagen,
+        imagen: cleanDocVal(v.permisoCirculacionImagen),
         estado: st.estado,
         diasRestantes: st.dias
       });
@@ -1152,9 +1157,26 @@ const Vehiculos = () => {
                           </span>
                         )}
 
-                        <span className={`badge ${hasAlerts ? 'badge-danger' : 'badge-success'}`} style={{ fontSize: '0.65rem' }}>
-                          {hasAlerts ? 'Atención Docs' : 'Docs al día'}
-                        </span>
+                        {(() => {
+                          const docStatus = evaluarEstadoDocumentacionVehiculo(v);
+                          return (
+                            <span 
+                              className={`badge ${docStatus.badgeClass}`} 
+                              style={{ 
+                                fontSize: '0.65rem',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                fontWeight: 700,
+                                border: `1px solid ${docStatus.borderColor}`
+                              }}
+                              title={docStatus.descripcion}
+                            >
+                              <span>{docStatus.iconText}</span>
+                              <span>{docStatus.label}</span>
+                            </span>
+                          );
+                        })()}
                       </div>
                     </div>
 
@@ -1208,6 +1230,11 @@ const Vehiculos = () => {
 
                   {/* Documentos Legales Obligatorios (Chile) */}
                   {(() => {
+                    const padronValido = Boolean(
+                      cleanDocVal(v.padronFolio) || 
+                      cleanDocVal(v.padronImagen) || 
+                      cleanDocVal(v.padronVin)
+                    );
                     const prt = evaluarDocumento(v.revisionTecnicaVencimiento);
                     const soap = evaluarDocumento(v.soapVencimiento);
                     const perm = evaluarDocumento(v.permisoCirculacionVencimiento);
@@ -1236,7 +1263,7 @@ const Vehiculos = () => {
                             onClick={() => handleViewDocFromCard(v, 'PADRON')}
                             style={{
                               background: 'rgba(0,0,0,0.3)',
-                              border: `1px solid ${v.padronFolio || v.padronImagen ? 'var(--color-success)' : 'var(--border-color)'}`,
+                              border: `1px solid ${padronValido ? 'var(--color-success)' : 'var(--border-color)'}`,
                               borderRadius: '4px',
                               padding: '0.35rem 0.15rem',
                               cursor: 'pointer',
@@ -1245,11 +1272,11 @@ const Vehiculos = () => {
                               alignItems: 'center',
                               gap: '0.15rem'
                             }}
-                            title={`Certificado de Inscripción de Vehículos Motorizados (Padrón - R.V.M.): ${v.padronFolio || v.padronImagen ? 'Inscrito / Al Día' : 'Sin adjuntar'}`}
+                            title={`Certificado de Inscripción de Vehículos Motorizados (Padrón - R.V.M.): ${padronValido ? 'Inscrito / Al Día' : 'Sin registrar'}`}
                           >
-                            <span style={{ fontWeight: 700, fontSize: '0.7rem', color: 'var(--text-primary)' }}>Padrón (CIVM)</span>
-                            <span style={{ color: v.padronFolio || v.padronImagen ? 'var(--color-success)' : 'var(--text-muted)', fontSize: '0.62rem', fontWeight: 600 }}>
-                              {v.padronFolio || v.padronImagen ? 'Al día' : 'S/Doc'}
+                            <span style={{ fontWeight: 700, fontSize: '0.7rem', color: 'var(--text-primary)' }}>Padrón</span>
+                            <span style={{ color: padronValido ? 'var(--color-success)' : 'var(--text-muted)', fontSize: '0.62rem', fontWeight: 600 }}>
+                              {padronValido ? 'Al día' : 'Sin Doc.'}
                             </span>
                           </button>
 
@@ -1270,7 +1297,9 @@ const Vehiculos = () => {
                             title={`Revisión Técnica: ${prt.label}`}
                           >
                             <span style={{ fontWeight: 700, fontSize: '0.7rem', color: 'var(--text-primary)' }}>PRT</span>
-                            <span style={{ color: prt.color, fontSize: '0.62rem', fontWeight: 600 }}>{prt.label}</span>
+                            <span style={{ color: prt.color, fontSize: '0.62rem', fontWeight: 600 }}>
+                              {prt.chipLabel || prt.label}
+                            </span>
                           </button>
 
                           <button
@@ -1290,7 +1319,9 @@ const Vehiculos = () => {
                             title={`SOAP: ${soap.label}`}
                           >
                             <span style={{ fontWeight: 700, fontSize: '0.7rem', color: 'var(--text-primary)' }}>SOAP</span>
-                            <span style={{ color: soap.color, fontSize: '0.62rem', fontWeight: 600 }}>{soap.label}</span>
+                            <span style={{ color: soap.color, fontSize: '0.62rem', fontWeight: 600 }}>
+                              {soap.chipLabel || soap.label}
+                            </span>
                           </button>
 
                           <button
@@ -1310,7 +1341,9 @@ const Vehiculos = () => {
                             title={`Permiso de Circulación: ${perm.label}`}
                           >
                             <span style={{ fontWeight: 700, fontSize: '0.7rem', color: 'var(--text-primary)' }}>Permiso</span>
-                            <span style={{ color: perm.color, fontSize: '0.62rem', fontWeight: 600 }}>{perm.label}</span>
+                            <span style={{ color: perm.color, fontSize: '0.62rem', fontWeight: 600 }}>
+                              {perm.chipLabel || perm.label}
+                            </span>
                           </button>
                         </div>
                       </div>

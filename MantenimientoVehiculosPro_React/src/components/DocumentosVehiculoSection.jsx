@@ -12,30 +12,70 @@ import {
   Car
 } from 'lucide-react';
 
+export const cleanDocVal = (val) => {
+  if (val === null || val === undefined) return null;
+  const str = String(val).trim();
+  if (str === '' || str.toUpperCase() === 'NULL' || str.toUpperCase() === 'UNDEFINED' || str === 'null') {
+    return null;
+  }
+  return str;
+};
+
 export const evaluarDocumento = (fechaVencimiento) => {
-  if (!fechaVencimiento) {
+  const cleanFecha = cleanDocVal(fechaVencimiento);
+  if (!cleanFecha) {
     return {
       estado: 'sin_registrar',
       label: 'Sin Registrar',
+      chipLabel: 'Sin Reg.',
       badgeClass: 'badge-secondary',
       dias: null,
       color: 'var(--text-muted)'
     };
   }
 
-  // Parsear fecha YYYY-MM-DD
-  const partes = fechaVencimiento.split('-');
-  if (partes.length !== 3) {
+  // Parsear fecha considerando formatos YYYY-MM-DD, DD-MM-YYYY o ISO
+  let cleanStr = cleanFecha;
+  if (cleanStr.includes('T')) {
+    cleanStr = cleanStr.split('T')[0];
+  }
+  cleanStr = cleanStr.replace(/\//g, '-').trim();
+
+  const partes = cleanStr.split('-');
+  let anio, mes, dia;
+
+  if (partes.length === 3) {
+    if (partes[0].length === 4) {
+      // YYYY-MM-DD
+      anio = Number(partes[0]);
+      mes = Number(partes[1]) - 1;
+      dia = Number(partes[2]);
+    } else if (partes[2].length === 4) {
+      // DD-MM-YYYY
+      dia = Number(partes[0]);
+      mes = Number(partes[1]) - 1;
+      anio = Number(partes[2]);
+    }
+  }
+
+  let vencimiento;
+  if (anio && !isNaN(mes) && dia) {
+    vencimiento = new Date(anio, mes, dia);
+  } else {
+    vencimiento = new Date(cleanFecha);
+  }
+
+  if (!vencimiento || isNaN(vencimiento.getTime())) {
     return {
       estado: 'sin_registrar',
-      label: 'Fecha Inválida',
+      label: 'Sin Registrar',
+      chipLabel: 'Sin Reg.',
       badgeClass: 'badge-secondary',
       dias: null,
       color: 'var(--text-muted)'
     };
   }
 
-  const vencimiento = new Date(Number(partes[0]), Number(partes[1]) - 1, Number(partes[2]));
   const hoy = new Date();
   hoy.setHours(0, 0, 0, 0);
 
@@ -46,14 +86,25 @@ export const evaluarDocumento = (fechaVencimiento) => {
     return {
       estado: 'vencido',
       label: `Vencido (${Math.abs(diffDays)}d)`,
+      chipLabel: 'Vencido',
       dias: diffDays,
       badgeClass: 'badge-danger',
       color: 'var(--color-danger)'
+    };
+  } else if (diffDays === 0) {
+    return {
+      estado: 'por_vencer',
+      label: 'Vence Hoy',
+      chipLabel: 'Vence Hoy',
+      dias: 0,
+      badgeClass: 'badge-warning',
+      color: 'var(--color-warning)'
     };
   } else if (diffDays <= 30) {
     return {
       estado: 'por_vencer',
       label: `Vence en ${diffDays}d`,
+      chipLabel: `${diffDays}d`,
       dias: diffDays,
       badgeClass: 'badge-warning',
       color: 'var(--color-warning)'
@@ -62,6 +113,7 @@ export const evaluarDocumento = (fechaVencimiento) => {
     return {
       estado: 'vigente',
       label: `Al día (${diffDays}d)`,
+      chipLabel: 'Al día',
       dias: diffDays,
       badgeClass: 'badge-success',
       color: 'var(--color-success)'
@@ -69,51 +121,179 @@ export const evaluarDocumento = (fechaVencimiento) => {
   }
 };
 
-const DocumentosVehiculoSection = ({ vehiculo, onOpenModal }) => {
-  if (!vehiculo) return null;
+export const evaluarEstadoDocumentacionVehiculo = (vehiculo) => {
+  if (!vehiculo) {
+    return {
+      estado: 'incompleto',
+      label: 'Sin Datos',
+      chipLabel: 'Sin Datos',
+      badgeClass: 'badge-secondary',
+      color: 'var(--text-muted)',
+      borderColor: 'var(--border-color)',
+      iconText: '❓',
+      descripcion: 'No hay información del vehículo registrada.'
+    };
+  }
 
-  const padronStatus = (vehiculo.padronFolio || vehiculo.padronImagen || vehiculo.padronVin)
-    ? { estado: 'vigente', label: 'Inscrito / Al Día', badgeClass: 'badge-success', color: 'var(--color-success)' }
-    : { estado: 'sin_registrar', label: 'Sin Adjuntar', badgeClass: 'badge-secondary', color: 'var(--text-muted)' };
+  const padronValido = Boolean(
+    cleanDocVal(vehiculo.padronFolio) || 
+    cleanDocVal(vehiculo.padronImagen) || 
+    cleanDocVal(vehiculo.padronVin)
+  );
+
+  const padronStatus = padronValido
+    ? { estado: 'vigente', label: 'Inscrito / Al Día', chipLabel: 'Al día', badgeClass: 'badge-success', color: 'var(--color-success)' }
+    : { estado: 'sin_registrar', label: 'Sin Adjuntar', chipLabel: 'Sin Doc.', badgeClass: 'badge-secondary', color: 'var(--text-muted)' };
 
   const prtStatus = evaluarDocumento(vehiculo.revisionTecnicaVencimiento);
   const soapStatus = evaluarDocumento(vehiculo.soapVencimiento);
   const permisoStatus = evaluarDocumento(vehiculo.permisoCirculacionVencimiento);
 
-  // Estado general de fiscalización
-  const hasExpired = prtStatus.estado === 'vencido' || soapStatus.estado === 'vencido' || permisoStatus.estado === 'vencido';
-  const hasPending = prtStatus.estado === 'sin_registrar' || soapStatus.estado === 'sin_registrar' || permisoStatus.estado === 'sin_registrar' || padronStatus.estado === 'sin_registrar';
-  const allValid = prtStatus.estado === 'vigente' && soapStatus.estado === 'vigente' && permisoStatus.estado === 'vigente' && padronStatus.estado === 'vigente';
+  const docs = [
+    { nombre: 'Padrón', st: padronStatus },
+    { nombre: 'PRT', st: prtStatus },
+    { nombre: 'SOAP', st: soapStatus },
+    { nombre: 'Permiso', st: permisoStatus }
+  ];
+
+  const hasExpired = docs.some(d => d.st.estado === 'vencido');
+  const hasPending = docs.some(d => d.st.estado === 'sin_registrar');
+  const hasExpiringSoon = docs.some(d => d.st.estado === 'por_vencer');
+  const allValid = docs.every(d => d.st.estado === 'vigente');
+
+  if (hasExpired) {
+    const vencidos = docs.filter(d => d.st.estado === 'vencido').map(d => d.nombre);
+    return {
+      estado: 'vencido',
+      label: 'Docs Vencidos',
+      chipLabel: 'Vencido',
+      badgeClass: 'badge-danger',
+      color: 'var(--color-danger)',
+      borderColor: 'rgba(239, 68, 68, 0.4)',
+      iconText: '🛑',
+      descripcion: `Documentación vencida: ${vencidos.join(', ')}. Infracción a Ley de Tránsito.`,
+      padronStatus,
+      prtStatus,
+      soapStatus,
+      permisoStatus
+    };
+  }
+
+  if (hasPending) {
+    const faltantes = docs.filter(d => d.st.estado === 'sin_registrar').map(d => d.nombre);
+    return {
+      estado: 'incompleto',
+      label: 'Docs Incompletos',
+      chipLabel: 'Incompleto',
+      badgeClass: 'badge-warning',
+      color: '#f59e0b',
+      borderColor: 'rgba(245, 158, 11, 0.4)',
+      iconText: '⚠️',
+      descripcion: `Falta registrar en BD: ${faltantes.join(', ')}.`,
+      faltantes,
+      padronStatus,
+      prtStatus,
+      soapStatus,
+      permisoStatus
+    };
+  }
+
+  if (hasExpiringSoon) {
+    const porVencer = docs.filter(d => d.st.estado === 'por_vencer').map(d => `${d.nombre} (${d.st.chipLabel})`);
+    return {
+      estado: 'por_vencer',
+      label: 'Docs por Vencer',
+      chipLabel: 'Por Vencer',
+      badgeClass: 'badge-warning',
+      color: '#f59e0b',
+      borderColor: 'rgba(245, 158, 11, 0.4)',
+      iconText: '⏳',
+      descripcion: `Próximos a vencer: ${porVencer.join(', ')}.`,
+      padronStatus,
+      prtStatus,
+      soapStatus,
+      permisoStatus
+    };
+  }
+
+  if (allValid) {
+    return {
+      estado: 'al_dia',
+      label: 'Docs al Día',
+      chipLabel: 'Al día',
+      badgeClass: 'badge-success',
+      color: 'var(--color-success)',
+      borderColor: 'rgba(16, 185, 129, 0.4)',
+      iconText: '✅',
+      descripcion: 'Padrón, PRT, SOAP y Permiso de Circulación registrados y vigentes.',
+      padronStatus,
+      prtStatus,
+      soapStatus,
+      permisoStatus
+    };
+  }
+
+  return {
+    estado: 'incompleto',
+    label: 'Docs Incompletos',
+    chipLabel: 'Incompleto',
+    badgeClass: 'badge-secondary',
+    color: 'var(--text-muted)',
+    borderColor: 'var(--border-color)',
+    iconText: '⚠️',
+    descripcion: 'Documentación legal pendiente de verificación.',
+    padronStatus,
+    prtStatus,
+    soapStatus,
+    permisoStatus
+  };
+};
+
+const DocumentosVehiculoSection = ({ vehiculo, onOpenModal }) => {
+  if (!vehiculo) return null;
+
+  const docGeneral = evaluarEstadoDocumentacionVehiculo(vehiculo);
+  const padronStatus = docGeneral.padronStatus;
+  const prtStatus = docGeneral.prtStatus;
+  const soapStatus = docGeneral.soapStatus;
+  const permisoStatus = docGeneral.permisoStatus;
+
+  const hasExpired = docGeneral.estado === 'vencido';
+  const allValid = docGeneral.estado === 'al_dia';
+
+  const emisorPrt = cleanDocVal(vehiculo.revisionTecnicaNumero) 
+    ? `Planta ${cleanDocVal(vehiculo.revisionTecnicaNumero)}` 
+    : 'Planta Homologada';
 
   const docs = [
     {
       tipo: 'PADRON',
       titulo: 'Certificado de Inscripción de Vehículos Motorizados (Padrón)',
       descripcion: 'Registro de Vehículos Motorizados (R.V.M.) - Servicio de Registro Civil e Identificación de Chile',
-      fechaVencimiento: vehiculo.padronFechaEmision ? `Emitido: ${vehiculo.padronFechaEmision}` : 'Documento Permanente',
-      numero: vehiculo.padronFolio || vehiculo.padronVin,
+      fechaVencimiento: cleanDocVal(vehiculo.padronFechaEmision) ? `Emitido: ${cleanDocVal(vehiculo.padronFechaEmision)}` : 'Documento Permanente',
+      numero: cleanDocVal(vehiculo.padronFolio) || cleanDocVal(vehiculo.padronVin) || 'Sin registrar',
       numeroLabel: 'Folio / N° Chasis (VIN)',
       emisor: 'Servicio de Registro Civil e Identificación',
       emisorLabel: 'Entidad Emisora',
-      imagen: vehiculo.padronImagen,
+      imagen: cleanDocVal(vehiculo.padronImagen),
       patente: vehiculo.patente,
       estadoInfo: padronStatus,
       detallesExtra: [
-        { label: 'N° Chasis / VIN', valor: vehiculo.padronVin },
-        { label: 'N° Motor', valor: vehiculo.padronMotor },
-        { label: 'Fecha Emisión', valor: vehiculo.padronFechaEmision }
-      ]
+        { label: 'N° Chasis / VIN', valor: cleanDocVal(vehiculo.padronVin) },
+        { label: 'N° Motor', valor: cleanDocVal(vehiculo.padronMotor) },
+        { label: 'Fecha Emisión', valor: cleanDocVal(vehiculo.padronFechaEmision) }
+      ].filter(d => d.valor)
     },
     {
       tipo: 'PRT',
       titulo: 'Certificado Revisión Técnica (PRT)',
       descripcion: 'Planta de Revisión Técnica y Emisión de Gases',
-      fechaVencimiento: vehiculo.revisionTecnicaVencimiento,
-      numero: vehiculo.revisionTecnicaNumero,
+      fechaVencimiento: cleanDocVal(vehiculo.revisionTecnicaVencimiento) || 'Sin registrar',
+      numero: cleanDocVal(vehiculo.revisionTecnicaNumero) || 'Sin registrar',
       numeroLabel: 'N° Certificado / Planta',
-      emisor: vehiculo.revisionTecnicaNumero ? `Planta ${vehiculo.revisionTecnicaNumero}` : 'Planta Homologada',
+      emisor: emisorPrt,
       emisorLabel: 'Planta PRT',
-      imagen: vehiculo.revisionTecnicaImagen,
+      imagen: cleanDocVal(vehiculo.revisionTecnicaImagen),
       patente: vehiculo.patente,
       estadoInfo: prtStatus
     },
@@ -121,12 +301,12 @@ const DocumentosVehiculoSection = ({ vehiculo, onOpenModal }) => {
       tipo: 'SOAP',
       titulo: 'Seguro Obligatorio (SOAP)',
       descripcion: 'Seguro Obligatorio de Accidentes Personales',
-      fechaVencimiento: vehiculo.soapVencimiento,
-      numero: vehiculo.soapPoliza,
+      fechaVencimiento: cleanDocVal(vehiculo.soapVencimiento) || 'Sin registrar',
+      numero: cleanDocVal(vehiculo.soapPoliza) || 'Sin registrar',
       numeroLabel: 'N° de Póliza',
-      emisor: vehiculo.soapAseguradora,
+      emisor: cleanDocVal(vehiculo.soapAseguradora) || 'Compañía Aseguradora',
       emisorLabel: 'Compañía Aseguradora',
-      imagen: vehiculo.soapImagen,
+      imagen: cleanDocVal(vehiculo.soapImagen),
       patente: vehiculo.patente,
       estadoInfo: soapStatus
     },
@@ -134,12 +314,12 @@ const DocumentosVehiculoSection = ({ vehiculo, onOpenModal }) => {
       tipo: 'PERMISO',
       titulo: 'Permiso de Circulación',
       descripcion: 'Habilitación Municipal Anual para Circular',
-      fechaVencimiento: vehiculo.permisoCirculacionVencimiento,
-      numero: vehiculo.permisoCirculacionFolio,
+      fechaVencimiento: cleanDocVal(vehiculo.permisoCirculacionVencimiento) || 'Sin registrar',
+      numero: cleanDocVal(vehiculo.permisoCirculacionFolio) || 'Sin registrar',
       numeroLabel: 'Folio / Comprobante de Pago',
-      emisor: vehiculo.permisoCirculacionMunicipalidad,
+      emisor: cleanDocVal(vehiculo.permisoCirculacionMunicipalidad) || 'Municipalidad Emisora',
       emisorLabel: 'Municipalidad Emisora',
-      imagen: vehiculo.permisoCirculacionImagen,
+      imagen: cleanDocVal(vehiculo.permisoCirculacionImagen),
       patente: vehiculo.patente,
       estadoInfo: permisoStatus
     }

@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Toast from '../components/Toast';
-import { evaluarDocumento } from '../components/DocumentosVehiculoSection';
+import { evaluarDocumento, cleanDocVal } from '../components/DocumentosVehiculoSection';
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -161,7 +161,7 @@ const Dashboard = () => {
           }
 
           // 4. Padrón (R.V.M.)
-          if (!v.padronFolio && !v.padronImagen && !v.padronVin) {
+          if (!cleanDocVal(v.padronFolio) && !cleanDocVal(v.padronImagen) && !cleanDocVal(v.padronVin)) {
             docAlertsArr.push({
               vehicleId: v.id,
               vehicleName: `${v.marca} ${v.modelo}`,
