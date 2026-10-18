@@ -984,13 +984,18 @@ const ScanQR = () => {
     }
   };
 
-  // Actualizar imagen del documento legal directamente desde la vista técnica
+  // Actualizar imagen del documento legal directamente desde la vista técnica (SOLO ADMIN)
   const handleUploadDocumentImage = async (newBase64) => {
+    if (!isAdmin) {
+      setToast({ message: 'Acceso denegado: Solo el Administrador puede modificar la documentación del vehículo.', type: 'error' });
+      return;
+    }
     if (!result?.vehicle || !selectedDoc) return;
     try {
       const v = result.vehicle;
       const payload = {
         ...v,
+        padronImagen: selectedDoc.tipo === 'PADRON' ? newBase64 : v.padronImagen,
         revisionTecnicaImagen: selectedDoc.tipo === 'PRT' ? newBase64 : v.revisionTecnicaImagen,
         soapImagen: selectedDoc.tipo === 'SOAP' ? newBase64 : v.soapImagen,
         permisoCirculacionImagen: selectedDoc.tipo === 'PERMISO' ? newBase64 : v.permisoCirculacionImagen
@@ -1004,10 +1009,10 @@ const ScanQR = () => {
         ...prev,
         imagen: newBase64
       }));
-      setToast({ message: `Fotografía de ${selectedDoc.tipo} actualizada exitosamente.`, type: 'success' });
+      setToast({ message: `Documento de ${selectedDoc.tipo} actualizado exitosamente.`, type: 'success' });
     } catch (err) {
-      console.error("Error al actualizar fotografía:", err);
-      setToast({ message: 'Error al guardar la fotografía del documento.', type: 'error' });
+      console.error("Error al actualizar documento:", err);
+      setToast({ message: 'Error al guardar el documento.', type: 'error' });
     }
   };
 
@@ -2789,12 +2794,12 @@ const ScanQR = () => {
         </div>
       )}
 
-      {/* Document Lightbox Modal */}
+      {/* Document Lightbox Modal (Solo lectura para conductores, edición para Administradores) */}
       {selectedDoc && (
         <DocumentModal 
           documento={selectedDoc} 
           onClose={() => setSelectedDoc(null)} 
-          onUploadImage={handleUploadDocumentImage} 
+          onUploadImage={isAdmin ? handleUploadDocumentImage : null} 
         />
       )}
 

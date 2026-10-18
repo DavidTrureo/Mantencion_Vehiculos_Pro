@@ -250,8 +250,10 @@ const DocumentModal = ({ documento, onClose, onUploadImage }) => {
               <p style={{ fontSize: '0.9rem', marginBottom: '0.25rem', color: 'var(--text-secondary)' }}>
                 No hay fotografía ni copia escaneada de este documento.
               </p>
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '1.25rem' }}>
-                Puedes adjuntar una foto legible o comprobante digital para que esté disponible en terreno y controles.
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: onUploadImage ? '1.25rem' : '0' }}>
+                {onUploadImage
+                  ? 'Puedes adjuntar una foto legible o comprobante digital para que esté disponible en terreno y controles.'
+                  : 'Documento en modo solo lectura para fiscalización. Para actualizar la copia oficial, contacta al Administrador de Flota.'}
               </p>
 
               {onUploadImage && (
