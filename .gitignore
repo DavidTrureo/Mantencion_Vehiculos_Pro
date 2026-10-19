@@ -11,3 +11,4 @@ dist/
 env.yaml
 target/
 *.apk
+!.env.example

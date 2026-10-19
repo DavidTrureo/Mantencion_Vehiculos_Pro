@@ -1,0 +1,48 @@
+services:
+  # =========================================================================
+  # 1. Base de datos PostgreSQL Local (para desarrollo y pruebas offline)
+  # =========================================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: vehiculospro-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${LOCAL_DB_NAME:-mantenimiento_db}
+      POSTGRES_USER: ${LOCAL_DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${LOCAL_DB_PASSWORD:-postgres123}
+    ports:
+      - "${LOCAL_DB_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${LOCAL_DB_USER:-postgres} -d ${LOCAL_DB_NAME:-mantenimiento_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # =========================================================================
+  # 2. Backend Spring Boot (API REST)
+  # =========================================================================
+  backend:
+    build:
+      context: ./vehiculospro-api
+      dockerfile: Dockerfile
+    container_name: vehiculospro-backend
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: 8080
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILE:-prod}
+      # Por defecto se conecta a la base de datos PostgreSQL local dentro de la red Docker.
+      # Si se desea conectar a Neon nube, basta con configurar DB_URL, DB_USERNAME y DB_PASSWORD en el archivo .env
+      DB_URL: ${DB_URL:-jdbc:postgresql://postgres:5432/mantenimiento_db}
+      DB_USERNAME: ${DB_USERNAME:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres123}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+    driver: local
