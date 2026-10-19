@@ -1,3 +1,4 @@
+import * as XLSX from 'xlsx';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
@@ -390,7 +391,37 @@ const Vehiculos = () => {
   };
 
   // Abrir Modal de creación (Solo Administrador)
-  const handleOpenCreateModal = () => {
+  
+  const handleExportExcel = () => {
+    try {
+      const data = filteredVehicles.map(v => ({
+        'Patente': v.patente,
+        'Marca': v.marca || '',
+        'Modelo': v.modelo || '',
+        'Año': v.anio || '',
+        'Kilometraje': v.kilometrajeActual || 0,
+        'Estado': v.estadoFlota || 'ACTIVO',
+        'Conductor Asignado': v.conductorAsignadoNombre || 'Sin Asignar',
+        'RUT Conductor': v.conductorAsignadoRut || '-',
+        'Empresa/Mandante': v.empresaMandante || '-',
+        'Padrón': v.padronValido ? 'Vigente' : 'Pendiente',
+        'Rev. Técnica': v.revisionTecnicaValida ? 'Vigente' : 'Pendiente',
+        'SOAP': v.soapValido ? 'Vigente' : 'Pendiente',
+        'Permiso Circulación': v.permisoCirculacionValido ? 'Vigente' : 'Pendiente',
+      }));
+
+      const worksheet = XLSX.utils.json_to_sheet(data);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Flota');
+      XLSX.writeFile(workbook, 'flota_vehiculos.xlsx');
+      setToast({ show: true, message: 'Flota exportada a Excel exitosamente.', type: 'success' });
+    } catch (err) {
+      console.error(err);
+      setToast({ show: true, message: 'Error al exportar a Excel.', type: 'danger' });
+    }
+  };
+
+const handleOpenCreateModal = () => {
     if (!isAdmin) {
       setToast({ message: 'Acceso denegado: Solo los administradores tienen permisos para registrar nuevos vehículos.', type: 'error' });
       return;
@@ -914,10 +945,16 @@ const Vehiculos = () => {
           )}
 
           {isAdmin && (
-            <button className="btn btn-primary" onClick={handleOpenCreateModal}>
-              <Plus size={18} />
-              <span>Registrar Vehículo</span>
-            </button>
+            <>
+              <button className="btn btn-secondary" onClick={handleExportExcel} title="Exportar flota a Excel">
+                <Download size={18} />
+                <span>Exportar Excel</span>
+              </button>
+              <button className="btn btn-primary" onClick={handleOpenCreateModal}>
+                <Plus size={18} />
+                <span>Registrar Vehículo</span>
+              </button>
+            </>
           )}
         </div>
       </div>
