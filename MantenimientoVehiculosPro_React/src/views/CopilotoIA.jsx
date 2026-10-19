@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../services/api';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -20,7 +20,8 @@ import {
   Settings,
   X,
   Check,
-  Info
+  Info,
+  RefreshCw
 } from 'lucide-react';
 import Toast from '../components/Toast';
 import { 
@@ -43,6 +44,7 @@ const PRESET_SYMPTOMS = [
 const CopilotoIA = () => {
   const navigate = useNavigate();
   const [vehicles, setVehicles] = useState([]);
+  const [loadingVehicles, setLoadingVehicles] = useState(true);
   const [selectedVehicleId, setSelectedVehicleId] = useState('');
   const [symptomText, setSymptomText] = useState('');
   const [selectedPresets, setSelectedPresets] = useState([]);
@@ -76,22 +78,44 @@ const CopilotoIA = () => {
     });
   };
 
-  useEffect(() => {
-    const loadFleet = async () => {
-      try {
-        const list = await api.getTodosLosVehiculos();
-        setVehicles(list);
-        if (list.length > 0) {
-          setSelectedVehicleId(list[0].id);
-        }
-      } catch (e) {
-        console.error("Error al cargar flota para IA:", e);
+  const loadFleet = useCallback(async (isSilent = false) => {
+    if (!isSilent) setLoadingVehicles(true);
+    try {
+      const list = await api.getTodosLosVehiculos();
+      const validList = Array.isArray(list) ? list : [];
+      setVehicles(validList);
+      if (validList.length > 0) {
+        setSelectedVehicleId(prev => {
+          const exists = validList.some(v => String(v.id) === String(prev));
+          return exists ? prev : String(validList[0].id);
+        });
+      } else {
+        setSelectedVehicleId('');
       }
-    };
-    loadFleet();
+    } catch (e) {
+      console.error("Error al cargar flota para IA:", e);
+      if (!isSilent) {
+        setToast({ message: 'No se pudo sincronizar la flota de vehículos.', type: 'error' });
+      }
+    } finally {
+      if (!isSilent) setLoadingVehicles(false);
+    }
   }, []);
 
-  const activeVehicle = vehicles.find(v => v.id === Number(selectedVehicleId)) || null;
+  useEffect(() => {
+    loadFleet(false);
+
+    const handleFocusSync = () => loadFleet(true);
+    window.addEventListener('focus', handleFocusSync);
+    document.addEventListener('visibilitychange', handleFocusSync);
+
+    return () => {
+      window.removeEventListener('focus', handleFocusSync);
+      document.removeEventListener('visibilitychange', handleFocusSync);
+    };
+  }, [loadFleet]);
+
+  const activeVehicle = vehicles.find(v => String(v.id) === String(selectedVehicleId)) || null;
 
   const togglePreset = (label) => {
     setSelectedPresets(prev => 
@@ -269,38 +293,77 @@ const CopilotoIA = () => {
           {/* 1. Seleccionar Vehículo */}
           <div className="form-group" style={{ margin: 0 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-              <label className="form-label" style={{ margin: 0 }}>Vehículo de la Flota a Evaluar</label>
-              {activeVehicle && (
-                <span 
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <label className="form-label" style={{ margin: 0 }}>Vehículo de la Flota a Evaluar</label>
+                {loadingVehicles && (
+                  <span style={{ fontSize: '0.75rem', color: '#94a3b8', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+                    <RefreshCw size={12} style={{ animation: 'spin 1s linear infinite' }} /> Cargando móviles...
+                  </span>
+                )}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                {activeVehicle && (
+                  <span 
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.35rem',
+                      background: 'rgba(56, 189, 248, 0.15)',
+                      color: '#38bdf8',
+                      border: '1px solid rgba(56, 189, 248, 0.3)',
+                      padding: '0.15rem 0.5rem',
+                      borderRadius: '4px',
+                      fontSize: '0.75rem',
+                      fontWeight: 700,
+                      letterSpacing: '0.05em'
+                    }}
+                  >
+                    🏷️ Patente: {activeVehicle.patente || 'Sin Patente'}
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => loadFleet(false)}
+                  title="Recargar vehículos de la flota desde la base de datos"
                   style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '0.35rem',
-                    background: 'rgba(56, 189, 248, 0.15)',
-                    color: '#38bdf8',
-                    border: '1px solid rgba(56, 189, 248, 0.3)',
-                    padding: '0.15rem 0.5rem',
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    color: '#94a3b8',
+                    padding: '0.2rem 0.5rem',
                     borderRadius: '4px',
                     fontSize: '0.75rem',
-                    fontWeight: 700,
-                    letterSpacing: '0.05em'
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.3rem'
                   }}
                 >
-                  🏷️ Patente: {activeVehicle.patente || 'Sin Patente'}
-                </span>
-              )}
+                  <RefreshCw size={12} style={loadingVehicles ? { animation: 'spin 1s linear infinite' } : {}} />
+                  <span>Recargar</span>
+                </button>
+              </div>
             </div>
             <select
               className="form-input form-select"
               value={selectedVehicleId}
               onChange={(e) => setSelectedVehicleId(e.target.value)}
-              style={{ fontWeight: 600 }}
+              disabled={loadingVehicles}
+              style={{ fontWeight: 600, cursor: loadingVehicles ? 'wait' : 'pointer' }}
             >
-              {vehicles.map(v => (
-                <option key={v.id} value={v.id}>
-                  🚗 {v.marca} {v.modelo} · [{v.patente || 'Sin Patente'}] [{(v.kilometraje ?? 0).toLocaleString()} km] · Conductor: {v.propietarioNombre || 'Sin asignar'}
-                </option>
-              ))}
+              {loadingVehicles ? (
+                <option value="">⏳ Conectando con la base de datos y cargando flota...</option>
+              ) : vehicles.length === 0 ? (
+                <option value="">⚠️ No hay vehículos registrados en la flota (Clic en Recargar)</option>
+              ) : (
+                <>
+                  <option value="">-- Seleccione un vehículo de la flota ({vehicles.length} disponibles) --</option>
+                  {vehicles.map(v => (
+                    <option key={v.id} value={v.id}>
+                      🚗 {v.marca} {v.modelo} · [{v.patente || 'Sin Patente'}] [{(v.kilometraje ?? 0).toLocaleString()} km] · Conductor: {v.propietarioNombre || 'Sin asignar'}
+                    </option>
+                  ))}
+                </>
+              )}
             </select>
           </div>
 

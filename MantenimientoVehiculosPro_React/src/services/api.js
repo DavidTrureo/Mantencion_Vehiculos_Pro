@@ -180,14 +180,17 @@ export const api = {
       });
       if (res.ok) {
         const data = await handleResponse(res);
-        if (Array.isArray(data) && data.length > 0) {
-          // Enriquecer con los nombres de usuario y choferes
+        if (Array.isArray(data)) {
+          if (data.length === 0) return [];
+          // Enriquecer con los nombres de usuario y choferes si es posible
           try {
             const users = await api.getUsuarios();
             const userMap = {};
-            users.forEach(u => {
-              userMap[u.id] = u.fullName || u.username;
-            });
+            if (Array.isArray(users)) {
+              users.forEach(u => {
+                userMap[u.id] = u.fullName || u.username;
+              });
+            }
             return data.map(v => ({
               ...v,
               propietarioNombre: v.propietarioNombre || (v.propietarioId ? userMap[v.propietarioId] : null)
@@ -198,24 +201,29 @@ export const api = {
         }
       }
     } catch (e) {
-      // Si el endpoint general no responde, agregamos por usuarios
+      console.warn("Aviso al consultar /vehiculos global:", e);
     }
 
     try {
       const users = await api.getUsuarios();
       const all = [];
-      for (const u of users) {
-        try {
-          const list = await api.getVehiculosPorUsuario(u.id);
-          all.push(...list.map(v => ({ 
-            ...v, 
-            propietarioId: u.id, 
-            propietarioNombre: u.fullName || u.username 
-          })));
-        } catch (err) {}
+      if (Array.isArray(users)) {
+        for (const u of users) {
+          try {
+            const list = await api.getVehiculosPorUsuario(u.id);
+            if (Array.isArray(list)) {
+              all.push(...list.map(v => ({ 
+                ...v, 
+                propietarioId: u.id, 
+                propietarioNombre: u.fullName || u.username 
+              })));
+            }
+          } catch (err) {}
+        }
       }
       return all;
     } catch (err) {
+      console.warn("Aviso al consultar vehículos por usuario:", err);
       return [];
     }
   },
