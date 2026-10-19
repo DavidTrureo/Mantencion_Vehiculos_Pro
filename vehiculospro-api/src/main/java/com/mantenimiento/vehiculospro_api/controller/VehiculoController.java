@@ -2,25 +2,24 @@ package com.mantenimiento.vehiculospro_api.controller;
 
 import com.mantenimiento.vehiculospro_api.dto.VehiculoDTO;
 import com.mantenimiento.vehiculospro_api.mapper.VehiculoMapper;
+import com.mantenimiento.vehiculospro_api.model.Mantenimiento;
 import com.mantenimiento.vehiculospro_api.model.Usuario;
 import com.mantenimiento.vehiculospro_api.model.Vehiculo;
-import com.mantenimiento.vehiculospro_api.model.Mantenimiento;
+import com.mantenimiento.vehiculospro_api.repository.MantenimientoRepository;
 import com.mantenimiento.vehiculospro_api.repository.UsuarioRepository;
 import com.mantenimiento.vehiculospro_api.repository.VehiculoRepository;
-import com.mantenimiento.vehiculospro_api.repository.MantenimientoRepository;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-import java.util.ArrayList;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.stream.Collectors;
 
 @RestController
-@RequestMapping({"/vehiculos", "/api/vehiculos"})
-@SuppressWarnings("null")
+@RequestMapping({"/api/vehiculos", "/vehiculos"})
 public class VehiculoController {
 
     @Autowired
@@ -32,26 +31,29 @@ public class VehiculoController {
     @Autowired
     private MantenimientoRepository mantenimientoRepository;
 
+    // Listado optimizado y ligero: NO transfiere megabytes de imágenes Base64
     @GetMapping
     public ResponseEntity<List<VehiculoDTO>> obtenerTodos() {
         List<Vehiculo> lista = vehiculoRepository.findAll();
         lista.forEach(this::calcularAlertasYEstados);
         List<VehiculoDTO> dtos = lista.stream()
-                .map(VehiculoMapper::toDTO)
+                .map(VehiculoMapper::toLightDTO)
                 .collect(Collectors.toList());
         return ResponseEntity.ok(dtos);
     }
 
+    // Listado por usuario optimizado y ligero
     @GetMapping("/usuario/{usuarioId}")
     public ResponseEntity<List<VehiculoDTO>> obtenerVehiculos(@PathVariable Long usuarioId) {
         List<Vehiculo> lista = vehiculoRepository.findByPropietarioId(usuarioId);
         lista.forEach(this::calcularAlertasYEstados);
         List<VehiculoDTO> dtos = lista.stream()
-                .map(VehiculoMapper::toDTO)
+                .map(VehiculoMapper::toLightDTO)
                 .collect(Collectors.toList());
         return ResponseEntity.ok(dtos);
     }
 
+    // Consulta individual por ID: Devuelve el vehículo completo CON todas sus imágenes en alta resolución
     @GetMapping("/{vehiculoId}")
     public ResponseEntity<VehiculoDTO> obtenerVehiculoPorId(@PathVariable Long vehiculoId) {
         Vehiculo vehiculo = vehiculoRepository.findById(vehiculoId)
@@ -100,24 +102,24 @@ public class VehiculoController {
             existente.setPropietario(nuevoPropietario);
         }
 
-        // Documentación Legal Chilena
+        // Documentación Legal Chilena (preserva imagen anterior si no se subió una nueva o si viene placeholder)
         existente.setRevisionTecnicaVencimiento(dto.getRevisionTecnicaVencimiento());
         existente.setRevisionTecnicaNumero(dto.getRevisionTecnicaNumero());
-        if (dto.getRevisionTecnicaImagen() != null) {
+        if (dto.getRevisionTecnicaImagen() != null && !"PRESENT".equals(dto.getRevisionTecnicaImagen())) {
             existente.setRevisionTecnicaImagen(dto.getRevisionTecnicaImagen());
         }
 
         existente.setSoapAseguradora(dto.getSoapAseguradora());
         existente.setSoapVencimiento(dto.getSoapVencimiento());
         existente.setSoapPoliza(dto.getSoapPoliza());
-        if (dto.getSoapImagen() != null) {
+        if (dto.getSoapImagen() != null && !"PRESENT".equals(dto.getSoapImagen())) {
             existente.setSoapImagen(dto.getSoapImagen());
         }
 
         existente.setPermisoCirculacionMunicipalidad(dto.getPermisoCirculacionMunicipalidad());
         existente.setPermisoCirculacionVencimiento(dto.getPermisoCirculacionVencimiento());
         existente.setPermisoCirculacionFolio(dto.getPermisoCirculacionFolio());
-        if (dto.getPermisoCirculacionImagen() != null) {
+        if (dto.getPermisoCirculacionImagen() != null && !"PRESENT".equals(dto.getPermisoCirculacionImagen())) {
             existente.setPermisoCirculacionImagen(dto.getPermisoCirculacionImagen());
         }
 
@@ -126,7 +128,7 @@ public class VehiculoController {
         existente.setPadronVin(dto.getPadronVin());
         existente.setPadronMotor(dto.getPadronMotor());
         existente.setPadronFechaEmision(dto.getPadronFechaEmision());
-        if (dto.getPadronImagen() != null) {
+        if (dto.getPadronImagen() != null && !"PRESENT".equals(dto.getPadronImagen())) {
             existente.setPadronImagen(dto.getPadronImagen());
         }
 

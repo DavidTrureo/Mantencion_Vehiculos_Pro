@@ -26,7 +26,7 @@ public class VehiculoMapper {
         dto.setActivo(v.getActivo());
         dto.setAlertas(v.getAlertas());
 
-        // Documentación Legal Chilena
+        // Documentación Legal Chilena completa (con imagen)
         dto.setRevisionTecnicaVencimiento(v.getRevisionTecnicaVencimiento());
         dto.setRevisionTecnicaNumero(v.getRevisionTecnicaNumero());
         dto.setRevisionTecnicaImagen(v.getRevisionTecnicaImagen());
@@ -51,6 +51,59 @@ public class VehiculoMapper {
         return dto;
     }
 
+    private static String toLightDoc(String val) {
+        if (val == null || val.isBlank()) return null;
+        if (val.startsWith("http://") || val.startsWith("https://")) {
+            return val;
+        }
+        return "PRESENT";
+    }
+
+    public static VehiculoDTO toLightDTO(Vehiculo v) {
+        VehiculoDTO dto = new VehiculoDTO();
+        dto.setId(v.getId());
+        dto.setMarca(v.getMarca());
+        dto.setModelo(v.getModelo());
+        dto.setAnio(v.getAnio());
+        dto.setKilometraje(v.getKilometraje());
+        if (v.getPropietario() != null) {
+            dto.setPropietarioId(v.getPropietario().getId());
+            String nombre = v.getPropietario().getFullName();
+            if (nombre == null || nombre.isBlank()) {
+                nombre = v.getPropietario().getUsername();
+            }
+            dto.setPropietarioNombre(nombre);
+        }
+        dto.setQrCode(v.getQrCode());
+        dto.setPatente(v.getPatente());
+        dto.setActivo(v.getActivo());
+        dto.setAlertas(v.getAlertas());
+
+        // Metadatos de Documentación Legal Chilena (Sin cargar los megabytes de Base64)
+        dto.setRevisionTecnicaVencimiento(v.getRevisionTecnicaVencimiento());
+        dto.setRevisionTecnicaNumero(v.getRevisionTecnicaNumero());
+        dto.setRevisionTecnicaImagen(toLightDoc(v.getRevisionTecnicaImagen()));
+
+        dto.setSoapAseguradora(v.getSoapAseguradora());
+        dto.setSoapVencimiento(v.getSoapVencimiento());
+        dto.setSoapPoliza(v.getSoapPoliza());
+        dto.setSoapImagen(toLightDoc(v.getSoapImagen()));
+
+        dto.setPermisoCirculacionMunicipalidad(v.getPermisoCirculacionMunicipalidad());
+        dto.setPermisoCirculacionVencimiento(v.getPermisoCirculacionVencimiento());
+        dto.setPermisoCirculacionFolio(v.getPermisoCirculacionFolio());
+        dto.setPermisoCirculacionImagen(toLightDoc(v.getPermisoCirculacionImagen()));
+
+        // 4. Padrón del Vehículo
+        dto.setPadronFolio(v.getPadronFolio());
+        dto.setPadronVin(v.getPadronVin());
+        dto.setPadronMotor(v.getPadronMotor());
+        dto.setPadronFechaEmision(v.getPadronFechaEmision());
+        dto.setPadronImagen(toLightDoc(v.getPadronImagen()));
+
+        return dto;
+    }
+
     public static Vehiculo toEntity(VehiculoDTO dto, Usuario propietario) {
         Vehiculo v = new Vehiculo();
         v.setId(dto.getId());
@@ -66,24 +119,32 @@ public class VehiculoMapper {
         // Documentación Legal Chilena
         v.setRevisionTecnicaVencimiento(dto.getRevisionTecnicaVencimiento());
         v.setRevisionTecnicaNumero(dto.getRevisionTecnicaNumero());
-        v.setRevisionTecnicaImagen(dto.getRevisionTecnicaImagen());
+        if (dto.getRevisionTecnicaImagen() != null && !"PRESENT".equals(dto.getRevisionTecnicaImagen())) {
+            v.setRevisionTecnicaImagen(dto.getRevisionTecnicaImagen());
+        }
 
         v.setSoapAseguradora(dto.getSoapAseguradora());
         v.setSoapVencimiento(dto.getSoapVencimiento());
         v.setSoapPoliza(dto.getSoapPoliza());
-        v.setSoapImagen(dto.getSoapImagen());
+        if (dto.getSoapImagen() != null && !"PRESENT".equals(dto.getSoapImagen())) {
+            v.setSoapImagen(dto.getSoapImagen());
+        }
 
         v.setPermisoCirculacionMunicipalidad(dto.getPermisoCirculacionMunicipalidad());
         v.setPermisoCirculacionVencimiento(dto.getPermisoCirculacionVencimiento());
         v.setPermisoCirculacionFolio(dto.getPermisoCirculacionFolio());
-        v.setPermisoCirculacionImagen(dto.getPermisoCirculacionImagen());
+        if (dto.getPermisoCirculacionImagen() != null && !"PRESENT".equals(dto.getPermisoCirculacionImagen())) {
+            v.setPermisoCirculacionImagen(dto.getPermisoCirculacionImagen());
+        }
 
         // 4. Padrón del Vehículo
         v.setPadronFolio(dto.getPadronFolio());
         v.setPadronVin(dto.getPadronVin());
         v.setPadronMotor(dto.getPadronMotor());
         v.setPadronFechaEmision(dto.getPadronFechaEmision());
-        v.setPadronImagen(dto.getPadronImagen());
+        if (dto.getPadronImagen() != null && !"PRESENT".equals(dto.getPadronImagen())) {
+            v.setPadronImagen(dto.getPadronImagen());
+        }
 
         return v;
     }

@@ -14,7 +14,10 @@ import {
 
 export const cleanDocVal = (val) => {
   if (val === null || val === undefined) return null;
-  const str = String(val).trim();
+  let str = String(val).trim();
+  if (str.startsWith('"') && str.endsWith('"') && str.length >= 2) {
+    str = str.substring(1, str.length - 1).trim();
+  }
   if (str === '' || str.toUpperCase() === 'NULL' || str.toUpperCase() === 'UNDEFINED' || str === 'null') {
     return null;
   }
@@ -277,6 +280,7 @@ const DocumentosVehiculoSection = ({ vehiculo, onOpenModal }) => {
       emisorLabel: 'Entidad Emisora',
       imagen: cleanDocVal(vehiculo.padronImagen),
       patente: vehiculo.patente,
+      vehiculoId: vehiculo.id,
       estadoInfo: padronStatus,
       detallesExtra: [
         { label: 'N° Chasis / VIN', valor: cleanDocVal(vehiculo.padronVin) },
@@ -295,6 +299,7 @@ const DocumentosVehiculoSection = ({ vehiculo, onOpenModal }) => {
       emisorLabel: 'Planta PRT',
       imagen: cleanDocVal(vehiculo.revisionTecnicaImagen),
       patente: vehiculo.patente,
+      vehiculoId: vehiculo.id,
       estadoInfo: prtStatus
     },
     {
@@ -308,6 +313,7 @@ const DocumentosVehiculoSection = ({ vehiculo, onOpenModal }) => {
       emisorLabel: 'Compañía Aseguradora',
       imagen: cleanDocVal(vehiculo.soapImagen),
       patente: vehiculo.patente,
+      vehiculoId: vehiculo.id,
       estadoInfo: soapStatus
     },
     {
@@ -321,6 +327,7 @@ const DocumentosVehiculoSection = ({ vehiculo, onOpenModal }) => {
       emisorLabel: 'Municipalidad Emisora',
       imagen: cleanDocVal(vehiculo.permisoCirculacionImagen),
       patente: vehiculo.patente,
+      vehiculoId: vehiculo.id,
       estadoInfo: permisoStatus
     }
   ];
@@ -390,6 +397,7 @@ const DocumentosVehiculoSection = ({ vehiculo, onOpenModal }) => {
                 titulo: doc.titulo,
                 tipo: doc.tipo,
                 patente: vehiculo.patente,
+                vehiculoId: vehiculo.id,
                 fechaVencimiento: doc.fechaVencimiento,
                 numero: doc.numero,
                 numeroLabel: doc.numeroLabel,

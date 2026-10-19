@@ -87,6 +87,7 @@ const Vehiculos = () => {
   const [formPermisoCirculacionVencimiento, setFormPermisoCirculacionVencimiento] = useState('');
   const [formPermisoCirculacionFolio, setFormPermisoCirculacionFolio] = useState('');
   const [formPermisoCirculacionImagen, setFormPermisoCirculacionImagen] = useState('');
+  const [submittingVehiculo, setSubmittingVehiculo] = useState(false);
   
   // NHTSA Data states
   const [marcas, setMarcas] = useState([]);
@@ -164,13 +165,17 @@ const Vehiculos = () => {
   useEffect(() => {
     fetchVehicles(false);
 
-    // Auto-sincronización periódica cada 6 segundos para reflejar salidas a ruta y retornos desde teléfonos en vivo
+    // Auto-sincronización periódica protegida contra consumo de cuota (solo si pestaña visible)
     const pollTimer = setInterval(() => {
-      fetchVehicles(true);
-    }, 6000);
+      if (document.visibilityState === 'visible') {
+        fetchVehicles(true);
+      }
+    }, 20000);
 
     const handleFocusSync = () => {
-      fetchVehicles(true);
+      if (document.visibilityState === 'visible') {
+        fetchVehicles(true);
+      }
     };
     window.addEventListener('focus', handleFocusSync);
     document.addEventListener('visibilitychange', handleFocusSync);
@@ -271,6 +276,21 @@ const Vehiculos = () => {
           if (extracted.permisoCirculacionVencimiento) { setFormPermisoCirculacionVencimiento(extracted.permisoCirculacionVencimiento); campos.push(`Vence (${extracted.permisoCirculacionVencimiento})`); }
         }
 
+        // Subida automática a Firebase Cloud Storage (WebP / PDF)
+        try {
+          const { subirACloudStorage } = await import('../utils/imageOptimizer');
+          subirACloudStorage(extracted.renderedImage || file || dataUrl, {
+            tipo: tipoDoc,
+            patente: formPatente || extracted.patente || 'vehiculo'
+          }).then(res => {
+            if (res && res.url) {
+              imageSetter(res.url);
+            }
+          }).catch(uploadErr => {
+            console.warn("Subida inmediata diferida al guardado final:", uploadErr);
+          });
+        } catch (e) {}
+
         if (campos.length > 0) {
           setToast({ 
             message: `✨ ¡Lectura ${isPdf ? 'PDF / ' : ''}OCR exitosa! Se extrajeron: ${campos.join(', ')}.`, 
@@ -304,6 +324,7 @@ const Vehiculos = () => {
         titulo: 'Certificado de Inscripción de Vehículos Motorizados (Padrón)',
         tipo: 'PADRON',
         patente: v.patente,
+        vehiculoId: v.id,
         fechaVencimiento: cleanDocVal(v.padronFechaEmision) ? `Emitido: ${cleanDocVal(v.padronFechaEmision)}` : 'Documento Permanente',
         numero: cleanDocVal(v.padronFolio) || cleanDocVal(v.padronVin) || 'Sin registrar',
         numeroLabel: 'Folio / N° Chasis (VIN)',
@@ -323,6 +344,7 @@ const Vehiculos = () => {
         titulo: 'Certificado de Revisión Técnica (PRT)',
         tipo: 'PRT',
         patente: v.patente,
+        vehiculoId: v.id,
         fechaVencimiento: cleanDocVal(v.revisionTecnicaVencimiento) || 'Sin registrar',
         numero: cleanDocVal(v.revisionTecnicaNumero) || 'Sin registrar',
         numeroLabel: 'N° Certificado / Planta',
@@ -338,6 +360,7 @@ const Vehiculos = () => {
         titulo: 'Seguro Obligatorio (SOAP)',
         tipo: 'SOAP',
         patente: v.patente,
+        vehiculoId: v.id,
         fechaVencimiento: cleanDocVal(v.soapVencimiento) || 'Sin registrar',
         numero: cleanDocVal(v.soapPoliza) || 'Sin registrar',
         numeroLabel: 'N° de Póliza',
@@ -353,6 +376,7 @@ const Vehiculos = () => {
         titulo: 'Permiso de Circulación',
         tipo: 'PERMISO',
         patente: v.patente,
+        vehiculoId: v.id,
         fechaVencimiento: cleanDocVal(v.permisoCirculacionVencimiento) || 'Sin registrar',
         numero: cleanDocVal(v.permisoCirculacionFolio) || 'Sin registrar',
         numeroLabel: 'Folio / Comprobante de Pago',
@@ -405,7 +429,7 @@ const Vehiculos = () => {
   };
 
   // Abrir Modal de edición (Solo Administrador)
-  const handleOpenEditModal = (vehicle) => {
+  const handleOpenEditModal = async (vehicle) => {
     if (!isAdmin) {
       setToast({ message: 'Acceso denegado: Solo los administradores tienen permisos para editar información de vehículos.', type: 'error' });
       return;
@@ -426,21 +450,36 @@ const Vehiculos = () => {
     setFormPadronVin(vehicle.padronVin || '');
     setFormPadronMotor(vehicle.padronMotor || '');
     setFormPadronFechaEmision(vehicle.padronFechaEmision || '');
-    setFormPadronImagen(vehicle.padronImagen || '');
+    setFormPadronImagen(vehicle.padronImagen === 'PRESENT' ? '' : (vehicle.padronImagen || ''));
 
     setFormRevisionTecnicaVencimiento(vehicle.revisionTecnicaVencimiento || '');
     setFormRevisionTecnicaNumero(vehicle.revisionTecnicaNumero || '');
-    setFormRevisionTecnicaImagen(vehicle.revisionTecnicaImagen || '');
+    setFormRevisionTecnicaImagen(vehicle.revisionTecnicaImagen === 'PRESENT' ? '' : (vehicle.revisionTecnicaImagen || ''));
     setFormSoapAseguradora(vehicle.soapAseguradora || '');
     setFormSoapVencimiento(vehicle.soapVencimiento || '');
     setFormSoapPoliza(vehicle.soapPoliza || '');
-    setFormSoapImagen(vehicle.soapImagen || '');
+    setFormSoapImagen(vehicle.soapImagen === 'PRESENT' ? '' : (vehicle.soapImagen || ''));
     setFormPermisoCirculacionMunicipalidad(vehicle.permisoCirculacionMunicipalidad || '');
     setFormPermisoCirculacionVencimiento(vehicle.permisoCirculacionVencimiento || '');
     setFormPermisoCirculacionFolio(vehicle.permisoCirculacionFolio || '');
-    setFormPermisoCirculacionImagen(vehicle.permisoCirculacionImagen || '');
+    setFormPermisoCirculacionImagen(vehicle.permisoCirculacionImagen === 'PRESENT' ? '' : (vehicle.permisoCirculacionImagen || ''));
 
     setShowModal(true);
+
+    // Si las imágenes son ligeras ('PRESENT'), cargar las imágenes en segundo plano para el formulario
+    if (vehicle.padronImagen === 'PRESENT' || vehicle.soapImagen === 'PRESENT' || vehicle.permisoCirculacionImagen === 'PRESENT' || vehicle.revisionTecnicaImagen === 'PRESENT') {
+      try {
+        const fullVeh = await api.getVehiculoById(vehicle.id);
+        if (fullVeh) {
+          if (fullVeh.padronImagen && fullVeh.padronImagen !== 'PRESENT') setFormPadronImagen(fullVeh.padronImagen);
+          if (fullVeh.revisionTecnicaImagen && fullVeh.revisionTecnicaImagen !== 'PRESENT') setFormRevisionTecnicaImagen(fullVeh.revisionTecnicaImagen);
+          if (fullVeh.soapImagen && fullVeh.soapImagen !== 'PRESENT') setFormSoapImagen(fullVeh.soapImagen);
+          if (fullVeh.permisoCirculacionImagen && fullVeh.permisoCirculacionImagen !== 'PRESENT') setFormPermisoCirculacionImagen(fullVeh.permisoCirculacionImagen);
+        }
+      } catch (err) {
+        console.warn("No se pudieron cargar imágenes completas para edición:", err);
+      }
+    }
   };
 
   // Guardar Vehículo (Crear o Editar - Solo Administrador)
@@ -465,6 +504,38 @@ const Vehiculos = () => {
       return;
     }
 
+    setSubmittingVehiculo(true);
+    setToast({ message: '☁️ Optimizando documentos y sincronizando con Cloud Storage...', type: 'info' });
+
+    let cleanPadron = formPadronImagen || null;
+    let cleanPRT = formRevisionTecnicaImagen || null;
+    let cleanSOAP = formSoapImagen || null;
+    let cleanPermiso = formPermisoCirculacionImagen || null;
+
+    try {
+      const { subirACloudStorage, isCloudUrl } = await import('../utils/imageOptimizer');
+
+      const ensureCloud = async (val, tipo) => {
+        if (!val || val === 'PRESENT' || isCloudUrl(val)) return val;
+        try {
+          const res = await subirACloudStorage(val, { tipo, patente: formPatente });
+          return res?.url || val;
+        } catch (uploadErr) {
+          console.error(`Error al subir ${tipo} a Cloud Storage:`, uploadErr);
+          return val;
+        }
+      };
+
+      [cleanPadron, cleanPRT, cleanSOAP, cleanPermiso] = await Promise.all([
+        ensureCloud(formPadronImagen, 'padron'),
+        ensureCloud(formRevisionTecnicaImagen, 'prt'),
+        ensureCloud(formSoapImagen, 'soap'),
+        ensureCloud(formPermisoCirculacionImagen, 'permiso')
+      ]);
+    } catch (optErr) {
+      console.warn("Advertencia al procesar optimizador de imágenes:", optErr);
+    }
+
     const targetOwnerId = (selectedUser?.id !== 'ALL' ? selectedUser?.id : formOwnerId) || user?.id || 1;
 
     const payload = {
@@ -482,24 +553,24 @@ const Vehiculos = () => {
       padronVin: formPadronVin || null,
       padronMotor: formPadronMotor || null,
       padronFechaEmision: formPadronFechaEmision || null,
-      padronImagen: formPadronImagen || null,
+      padronImagen: cleanPadron,
 
       // 1. PRT
       revisionTecnicaVencimiento: formRevisionTecnicaVencimiento || null,
       revisionTecnicaNumero: formRevisionTecnicaNumero || null,
-      revisionTecnicaImagen: formRevisionTecnicaImagen || null,
+      revisionTecnicaImagen: cleanPRT,
 
       // 2. SOAP
       soapAseguradora: formSoapAseguradora || null,
       soapVencimiento: formSoapVencimiento || null,
       soapPoliza: formSoapPoliza || null,
-      soapImagen: formSoapImagen || null,
+      soapImagen: cleanSOAP,
 
       // 3. Permiso de Circulación
       permisoCirculacionMunicipalidad: formPermisoCirculacionMunicipalidad || null,
       permisoCirculacionVencimiento: formPermisoCirculacionVencimiento || null,
       permisoCirculacionFolio: formPermisoCirculacionFolio || null,
-      permisoCirculacionImagen: formPermisoCirculacionImagen || null
+      permisoCirculacionImagen: cleanPermiso
     };
 
     try {
@@ -526,6 +597,8 @@ const Vehiculos = () => {
     } catch (e) {
       console.error("Error al guardar vehículo:", e);
       setToast({ message: e.message || 'Error al guardar el vehículo.', type: 'error' });
+    } finally {
+      setSubmittingVehiculo(false);
     }
   };
 
@@ -2000,8 +2073,8 @@ const Vehiculos = () => {
                   <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>
                     Cancelar
                   </button>
-                  <button type="submit" className="btn btn-primary">
-                    {modalType === 'create' ? 'Registrar Vehículo' : 'Guardar Cambios'}
+                  <button type="submit" className="btn btn-primary" disabled={submittingVehiculo}>
+                    {submittingVehiculo ? '☁️ Subiendo a Cloud Storage...' : (modalType === 'create' ? 'Registrar Vehículo' : 'Guardar Cambios')}
                   </button>
                 </div>
               </div>

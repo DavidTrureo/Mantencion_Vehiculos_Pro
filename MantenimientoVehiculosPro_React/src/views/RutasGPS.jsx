@@ -295,11 +295,12 @@ const RutasGPS = () => {
     loadFleet();
     loadBackendShiftHistory();
 
-    // Polling automático cada 6 segundos para que cuando un chofer tome control desde su celular,
-    // la pantalla del Administrador y Mecánico se actualice sola al instante
+    // Polling automático protegido cada 15 segundos (solo con pestaña en primer plano)
     const pollInterval = setInterval(() => {
-      loadFleet(true);
-    }, 6000);
+      if (document.visibilityState === 'visible') {
+        loadFleet(true);
+      }
+    }, 15000);
 
     const handleStorageChange = () => {
       loadFleet(true);

@@ -175,7 +175,7 @@ export const api = {
   // Vehículos
   getTodosLosVehiculos: async () => {
     try {
-      const res = await fetch(`${BASE_URL}/vehiculos`, {
+      const res = await fetch(`${BASE_URL}/api/vehiculos`, {
         headers: getHeaders(),
       });
       if (res.ok) {
@@ -201,7 +201,7 @@ export const api = {
         }
       }
     } catch (e) {
-      console.warn("Aviso al consultar /vehiculos global:", e);
+      console.warn("Aviso al consultar /api/vehiculos global:", e);
     }
 
     try {
@@ -229,14 +229,14 @@ export const api = {
   },
 
   getVehiculosPorUsuario: async (usuarioId) => {
-    const res = await fetch(`${BASE_URL}/vehiculos/usuario/${usuarioId}`, {
+    const res = await fetch(`${BASE_URL}/api/vehiculos/usuario/${usuarioId}`, {
       headers: getHeaders(),
     });
     return handleResponse(res);
   },
 
   getVehiculoById: async (vehiculoId) => {
-    const res = await fetch(`${BASE_URL}/vehiculos/${vehiculoId}`, {
+    const res = await fetch(`${BASE_URL}/api/vehiculos/${vehiculoId}`, {
       headers: getHeaders(),
     });
     const data = await handleResponse(res);
@@ -250,7 +250,7 @@ export const api = {
   },
 
   crearVehiculo: async (usuarioId, vehiculoData) => {
-    const res = await fetch(`${BASE_URL}/vehiculos/usuario/${usuarioId}`, {
+    const res = await fetch(`${BASE_URL}/api/vehiculos/usuario/${usuarioId}`, {
       method: 'POST',
       headers: getHeaders(),
       body: JSON.stringify(vehiculoData),
@@ -259,7 +259,7 @@ export const api = {
   },
 
   actualizarVehiculo: async (vehiculoId, vehiculoData) => {
-    const res = await fetch(`${BASE_URL}/vehiculos/${vehiculoId}`, {
+    const res = await fetch(`${BASE_URL}/api/vehiculos/${vehiculoId}`, {
       method: 'PUT',
       headers: getHeaders(),
       body: JSON.stringify(vehiculoData),
@@ -268,7 +268,7 @@ export const api = {
   },
 
   eliminarVehiculo: async (vehiculoId) => {
-    const res = await fetch(`${BASE_URL}/vehiculos/${vehiculoId}`, {
+    const res = await fetch(`${BASE_URL}/api/vehiculos/${vehiculoId}`, {
       method: 'DELETE',
       headers: getHeaders(),
     });
@@ -276,7 +276,7 @@ export const api = {
   },
 
   toggleVehiculoActivo: async (vehiculoId) => {
-    const res = await fetch(`${BASE_URL}/vehiculos/${vehiculoId}/toggle-activo`, {
+    const res = await fetch(`${BASE_URL}/api/vehiculos/${vehiculoId}/toggle-activo`, {
       method: 'PATCH',
       headers: getHeaders(),
     });
@@ -535,12 +535,14 @@ export const api = {
   },
 
   // Subida de evidencias y documentos a almacenamiento en la nube (Firebase Storage)
-  subirArchivo: async (fileOrBlob, filename = 'evidencia.jpg') => {
+  subirArchivo: async (fileOrBlob, filename = 'evidencia.webp') => {
     const formData = new FormData();
     if (fileOrBlob instanceof Blob && !(fileOrBlob instanceof File)) {
       formData.append('file', fileOrBlob, filename);
+    } else if (fileOrBlob instanceof File) {
+      formData.append('file', fileOrBlob, filename || fileOrBlob.name);
     } else {
-      formData.append('file', fileOrBlob);
+      formData.append('file', fileOrBlob, filename);
     }
     const token = localStorage.getItem('token');
     const headers = {};

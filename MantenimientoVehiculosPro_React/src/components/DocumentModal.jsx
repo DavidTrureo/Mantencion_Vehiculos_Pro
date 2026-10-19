@@ -19,6 +19,7 @@ import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { cleanDocVal } from './DocumentosVehiculoSection';
+import { api } from '../services/api';
 
 const DocumentModal = ({ documento, onClose, onUploadImage }) => {
   if (!documento) return null;
@@ -27,6 +28,61 @@ const DocumentModal = ({ documento, onClose, onUploadImage }) => {
   const [zoom, setZoom] = useState(1);
   const [downloading, setDownloading] = useState(false);
   const [toastMsg, setToastMsg] = useState(null);
+
+  // Carga bajo demanda de imagen en alta resolución si viene en modo ligero 'PRESENT'
+  const [currentImage, setCurrentImage] = useState(
+    documento.imagen === 'PRESENT' ? null : cleanDocVal(documento.imagen)
+  );
+  const [loadingRealImage, setLoadingRealImage] = useState(documento.imagen === 'PRESENT');
+
+  useEffect(() => {
+    if (documento.imagen === 'PRESENT') {
+      let isMounted = true;
+      setLoadingRealImage(true);
+
+      const fetchImage = async () => {
+        try {
+          let fullVeh = null;
+          if (documento.vehiculoId) {
+            fullVeh = await api.getVehiculoById(documento.vehiculoId);
+          } else if (documento.patente) {
+            const all = await api.getTodosLosVehiculos();
+            const found = all.find(v => v.patente === documento.patente);
+            if (found) {
+              fullVeh = await api.getVehiculoById(found.id);
+            }
+          }
+
+          if (!isMounted || !fullVeh) return;
+
+          let realImg = null;
+          const t = (documento.tipo || '').toUpperCase();
+          if (t === 'PADRON') realImg = fullVeh.padronImagen;
+          else if (t === 'PRT' || t.includes('REVISION')) realImg = fullVeh.revisionTecnicaImagen;
+          else if (t === 'SOAP') realImg = fullVeh.soapImagen;
+          else if (t === 'PERMISO') realImg = fullVeh.permisoCirculacionImagen;
+
+          const cleanedRealImg = cleanDocVal(realImg);
+          if (cleanedRealImg && cleanedRealImg !== 'PRESENT') {
+            setCurrentImage(cleanedRealImg);
+            documento.imagen = cleanedRealImg;
+          } else {
+            setCurrentImage(null);
+          }
+        } catch (err) {
+          console.error("Error al obtener imagen bajo demanda:", err);
+        } finally {
+          if (isMounted) setLoadingRealImage(false);
+        }
+      };
+
+      fetchImage();
+      return () => { isMounted = false; };
+    } else {
+      setCurrentImage(documento.imagen === 'PRESENT' ? null : cleanDocVal(documento.imagen));
+      setLoadingRealImage(false);
+    }
+  }, [documento]);
 
   // Escuchar tecla Escape para cerrar
   useEffect(() => {
@@ -51,19 +107,33 @@ const DocumentModal = ({ documento, onClose, onUploadImage }) => {
   };
 
   // Descarga y compartir nativo ultra-robusto (Android Capacitor + Navegador Web)
+  // Descarga y compartir nativo ultra-robusto (Android Capacitor + Navegador Web)
   const handleDownload = async () => {
-    if (!documento.imagen) return;
+    if (!currentImage || currentImage === 'PRESENT') return;
     setDownloading(true);
 
-    const isPdf = typeof documento.imagen === 'string' && documento.imagen.includes('application/pdf');
-    const ext = isPdf ? 'pdf' : 'png';
+    const isPdf = typeof currentImage === 'string' && (currentImage.includes('application/pdf') || currentImage.toLowerCase().includes('.pdf'));
+    const isWebp = typeof currentImage === 'string' && currentImage.toLowerCase().includes('.webp');
+    const ext = isPdf ? 'pdf' : (isWebp ? 'webp' : 'png');
     const nombreArchivo = `${documento.tipo || 'Documento'}_${documento.patente || 'Vehiculo'}.${ext}`;
 
     try {
       // 1. SI ESTAMOS EN DISPOSITIVO MÓVIL NATIVO (Android / iOS con Capacitor)
       if (Capacitor.isNativePlatform()) {
-        let base64Clean = documento.imagen;
-        if (base64Clean.includes(',')) {
+        let base64Clean = currentImage;
+        if (currentImage.startsWith('http://') || currentImage.startsWith('https://')) {
+          const res = await fetch(currentImage);
+          const b = await res.blob();
+          const reader = new FileReader();
+          base64Clean = await new Promise((resolve, reject) => {
+            reader.onloadend = () => {
+              const resData = reader.result;
+              resolve(resData.includes(',') ? resData.split(',')[1] : resData);
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(b);
+          });
+        } else if (base64Clean.includes(',')) {
           base64Clean = base64Clean.split(',')[1];
         }
 
@@ -89,8 +159,8 @@ const DocumentModal = ({ documento, onClose, onUploadImage }) => {
 
       // 2. SI ESTAMOS EN NAVEGADOR WEB (Desktop o Chrome Web)
       let blob;
-      if (documento.imagen.startsWith('data:')) {
-        const parts = documento.imagen.split(',');
+      if (currentImage.startsWith('data:')) {
+        const parts = currentImage.split(',');
         const mimeMatch = parts[0].match(/:(.*?);/);
         const mimeType = mimeMatch ? mimeMatch[1] : (isPdf ? 'application/pdf' : 'image/png');
         const b64Data = parts[1] || parts[0];
@@ -102,7 +172,7 @@ const DocumentModal = ({ documento, onClose, onUploadImage }) => {
         const byteArray = new Uint8Array(byteNumbers);
         blob = new Blob([byteArray], { type: mimeType });
       } else {
-        const response = await fetch(documento.imagen);
+        const response = await fetch(currentImage);
         blob = await response.blob();
       }
 
@@ -122,7 +192,6 @@ const DocumentModal = ({ documento, onClose, onUploadImage }) => {
 
     } catch (err) {
       console.error("Error al procesar descarga de documento:", err);
-      // Si el usuario simplemente canceló la hoja de compartir en Android, no mostrar error
       if (err.name === 'AbortError' || (err.message && err.message.toLowerCase().includes('cancel'))) {
         setDownloading(false);
         return;
@@ -136,25 +205,24 @@ const DocumentModal = ({ documento, onClose, onUploadImage }) => {
     const file = e.target.files[0];
     if (!file || !onUploadImage) return;
 
-    const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
-    const reader = new FileReader();
-    reader.onloadend = async () => {
-      const dataUrl = reader.result;
-      if (isPdf) {
-        try {
-          const { extraerTextoYRenderDePdf } = await import('../services/documentParser');
-          const pdfRes = await extraerTextoYRenderDePdf(dataUrl);
-          if (pdfRes.renderedImage) {
-            onUploadImage(pdfRes.renderedImage);
-            return;
-          }
-        } catch (err) {
-          console.warn("Error renderizando PDF en modal:", err);
-        }
+    try {
+      showFeedback('⏳ Optimizando a WebP y subiendo a Cloud Storage...');
+      const { subirACloudStorage } = await import('../utils/imageOptimizer');
+      const uploadRes = await subirACloudStorage(file, {
+        tipo: documento.tipo || 'documento',
+        patente: documento.patente || 'vehiculo'
+      });
+
+      if (uploadRes && uploadRes.url) {
+        setCurrentImage(uploadRes.url);
+        documento.imagen = uploadRes.url;
+        await onUploadImage(uploadRes.url);
+        showFeedback('✅ Documento optimizado y guardado en Cloud Storage.');
       }
-      onUploadImage(dataUrl);
-    };
-    reader.readAsDataURL(file);
+    } catch (err) {
+      console.error("Error al subir documento a Cloud Storage:", err);
+      showFeedback('❌ Error al subir documento a Cloud Storage.');
+    }
   };
 
   const getStatusBadge = () => {
@@ -358,7 +426,26 @@ const DocumentModal = ({ documento, onClose, onUploadImage }) => {
               padding: '0.5rem'
             }}
           >
-            {documento.imagen ? (
+            {loadingRealImage ? (
+              <div style={{ textAlign: 'center', padding: '3.5rem 1rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.85rem' }}>
+                <div style={{
+                  width: '38px',
+                  height: '38px',
+                  border: '3px solid rgba(59, 130, 246, 0.2)',
+                  borderTopColor: 'var(--primary)',
+                  borderRadius: '50%',
+                  animation: 'spin 0.8s linear infinite'
+                }} />
+                <div>
+                  <p style={{ fontSize: '0.92rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.2rem' }}>
+                    Cargando copia oficial en alta resolución...
+                  </p>
+                  <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                    Optimizando ancho de banda y descargando bajo demanda
+                  </p>
+                </div>
+              </div>
+            ) : currentImage ? (
               <div 
                 onClick={() => {
                   setZoom(1.25);
@@ -376,7 +463,7 @@ const DocumentModal = ({ documento, onClose, onUploadImage }) => {
                 }}
               >
                 <img 
-                  src={documento.imagen} 
+                  src={currentImage} 
                   alt={`Copia oficial de ${documento.titulo}`} 
                   style={{ 
                     maxWidth: '100%', 
@@ -464,7 +551,7 @@ const DocumentModal = ({ documento, onClose, onUploadImage }) => {
           {/* Footer Actions */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1.25rem', borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
             <div>
-              {documento.imagen && onUploadImage && (
+              {(currentImage || loadingRealImage) && onUploadImage && (
                 <label className="btn btn-secondary btn-sm" style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem' }}>
                   <UploadCloud size={14} />
                   <span>Reemplazar Documento</span>
@@ -474,16 +561,16 @@ const DocumentModal = ({ documento, onClose, onUploadImage }) => {
             </div>
 
             <div style={{ display: 'flex', gap: '0.75rem' }}>
-              {documento.imagen && (
+              {(currentImage || loadingRealImage) && (
                 <button 
                   type="button" 
                   className="btn btn-secondary btn-sm" 
                   onClick={handleDownload}
-                  disabled={downloading}
+                  disabled={downloading || loadingRealImage || !currentImage}
                   style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
                 >
                   <Download size={15} />
-                  <span>{downloading ? 'Descargando...' : 'Descargar'}</span>
+                  <span>{downloading ? 'Descargando...' : loadingRealImage ? 'Cargando...' : 'Descargar'}</span>
                 </button>
               )}
 
@@ -639,7 +726,7 @@ const DocumentModal = ({ documento, onClose, onUploadImage }) => {
           >
             <div style={{ margin: 'auto', display: 'inline-block', position: 'relative' }}>
               <img 
-                src={documento.imagen} 
+                src={currentImage} 
                 alt={`Ampliación de ${documento.titulo}`} 
                 onClick={(e) => {
                   e.stopPropagation();

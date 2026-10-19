@@ -216,9 +216,11 @@ const ScanQR = () => {
     const targetVehId = activeShift?.vehiculoId || result?.vehicle?.id;
     if (!targetVehId) return;
 
-    // Polling cada 30 segundos
+    // Polling cada 30 segundos si la pestaña está activa
     const interval = setInterval(() => {
-      fetchVehicleForShift(targetVehId, false);
+      if (document.visibilityState === 'visible') {
+        fetchVehicleForShift(targetVehId, false);
+      }
     }, 30000);
 
     // Al volver al primer plano o cambiar de pestaña
@@ -1028,21 +1030,33 @@ const ScanQR = () => {
   };
 
   // Actualizar imagen del documento legal directamente desde la vista técnica (SOLO ADMIN)
-  const handleUploadDocumentImage = async (newBase64) => {
+  const handleUploadDocumentImage = async (newDocVal) => {
     if (!isAdmin) {
       setToast({ message: 'Acceso denegado: Solo el Administrador puede modificar la documentación del vehículo.', type: 'error' });
       return;
     }
     if (!result?.vehicle || !selectedDoc) return;
     try {
+      const { subirACloudStorage, isCloudUrl } = await import('../utils/imageOptimizer');
+      let finalUrl = newDocVal;
+      if (!isCloudUrl(newDocVal)) {
+        const uploadRes = await subirACloudStorage(newDocVal, {
+          tipo: selectedDoc.tipo,
+          patente: result.vehicle.patente
+        });
+        if (uploadRes && uploadRes.url) {
+          finalUrl = uploadRes.url;
+        }
+      }
+
       const freshVeh = await api.getVehiculoById(result.vehicle.id);
       const v = freshVeh || result.vehicle;
       const payload = {
         ...v,
-        padronImagen: selectedDoc.tipo === 'PADRON' ? newBase64 : v.padronImagen,
-        revisionTecnicaImagen: selectedDoc.tipo === 'PRT' ? newBase64 : v.revisionTecnicaImagen,
-        soapImagen: selectedDoc.tipo === 'SOAP' ? newBase64 : v.soapImagen,
-        permisoCirculacionImagen: selectedDoc.tipo === 'PERMISO' ? newBase64 : v.permisoCirculacionImagen
+        padronImagen: selectedDoc.tipo === 'PADRON' ? finalUrl : v.padronImagen,
+        revisionTecnicaImagen: selectedDoc.tipo === 'PRT' ? finalUrl : v.revisionTecnicaImagen,
+        soapImagen: selectedDoc.tipo === 'SOAP' ? finalUrl : v.soapImagen,
+        permisoCirculacionImagen: selectedDoc.tipo === 'PERMISO' ? finalUrl : v.permisoCirculacionImagen
       };
       const updated = await api.actualizarVehiculo(v.id, payload);
       setResult(prev => ({
@@ -1051,97 +1065,49 @@ const ScanQR = () => {
       }));
       setSelectedDoc(prev => ({
         ...prev,
-        imagen: newBase64
+        imagen: finalUrl
       }));
-      setToast({ message: `Documento de ${selectedDoc.tipo} actualizado exitosamente.`, type: 'success' });
+      setToast({ message: `Documento de ${selectedDoc.tipo} guardado en Cloud Storage y actualizado exitosamente.`, type: 'success' });
     } catch (err) {
       console.error("Error al actualizar documento:", err);
       setToast({ message: 'Error al guardar el documento.', type: 'error' });
     }
   };
 
-  // Subir o capturar foto del incidente / falla con compresión automática directa a Base64 para MySQL
-  const handleIncidentImageUpload = (e) => {
+  // Subir o capturar foto del incidente / falla: Compresión a WebP y subida directa a Firebase Cloud Storage
+  const handleIncidentImageUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setCompressingIncidentFoto(true);
+    setToast({ message: '📸 Optimizando foto a WebP y subiendo a Cloud Storage...', type: 'info' });
 
     try {
-      const objectUrl = URL.createObjectURL(file);
-      const img = new Image();
+      const { subirACloudStorage } = await import('../utils/imageOptimizer');
+      const uploadRes = await subirACloudStorage(file, {
+        tipo: 'incidente',
+        patente: result?.vehicle?.patente || activeShift?.patente || 'vehiculo'
+      });
 
-      img.onload = () => {
-        try {
-          const canvas = document.createElement('canvas');
-          const MAX_DIM = 1000;
-          let width = img.width;
-          let height = img.height;
-
-          if (width > height) {
-            if (width > MAX_DIM) {
-              height = Math.round((height * MAX_DIM) / width);
-              width = MAX_DIM;
-            }
-          } else {
-            if (height > MAX_DIM) {
-              width = Math.round((width * MAX_DIM) / height);
-              height = MAX_DIM;
-            }
-          }
-
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(img, 0, 0, width, height);
-
-          // Genera el Base64 comprimido óptimo (~80 KB - 120 KB)
-          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
-          setIncidentFoto(compressedBase64);
-          setToast({ message: '📸 Fotografía capturada y lista para enviar.', type: 'success' });
-        } catch (canvasErr) {
-          console.warn("Fallback de imagen con FileReader:", canvasErr);
-          const reader = new FileReader();
-          reader.onload = (fe) => {
-            setIncidentFoto(fe.target.result);
-          };
-          reader.readAsDataURL(file);
-        } finally {
-          URL.revokeObjectURL(objectUrl);
-          setCompressingIncidentFoto(false);
-        }
-      };
-
-      img.onerror = () => {
-        URL.revokeObjectURL(objectUrl);
-        const reader = new FileReader();
-        reader.onload = (fe) => {
-          setIncidentFoto(fe.target.result);
-          setCompressingIncidentFoto(false);
-        };
-        reader.onerror = () => {
-          setToast({ message: 'No se pudo leer la fotografía seleccionada.', type: 'error' });
-          setCompressingIncidentFoto(false);
-        };
-        reader.readAsDataURL(file);
-      };
-
-      img.src = objectUrl;
-    } catch (err) {
-      console.error("Error al procesar foto:", err);
-      try {
-        const reader = new FileReader();
-        reader.onload = (fe) => {
-          setIncidentFoto(fe.target.result);
-          setCompressingIncidentFoto(false);
-        };
-        reader.readAsDataURL(file);
-      } catch (fatalErr) {
-        setToast({ message: 'Error al procesar fotografía.', type: 'error' });
-        setCompressingIncidentFoto(false);
+      if (uploadRes && uploadRes.url) {
+        setIncidentFoto(uploadRes.url);
+        setToast({ message: '📸 Fotografía optimizada en Cloud Storage lista para enviar.', type: 'success' });
+      } else {
+        throw new Error('No se obtuvo URL de almacenamiento');
       }
+    } catch (err) {
+      console.error("Error al subir foto de incidente a Cloud Storage:", err);
+      // Fallback local en caso de desconexión
+      const reader = new FileReader();
+      reader.onload = (fe) => {
+        setIncidentFoto(fe.target.result);
+      };
+      reader.readAsDataURL(file);
+      setToast({ message: 'Foto capturada en modo local.', type: 'warning' });
+    } finally {
+      setCompressingIncidentFoto(false);
+      e.target.value = '';
     }
-    e.target.value = '';
   };
 
   // Enviar reporte formal de falla o accidente
@@ -1164,6 +1130,22 @@ const ScanQR = () => {
 
     setSubmittingIncident(true);
     try {
+      let finalFotoUrl = incidentFoto || null;
+      if (finalFotoUrl && !finalFotoUrl.startsWith('http://') && !finalFotoUrl.startsWith('https://')) {
+        try {
+          const { subirACloudStorage } = await import('../utils/imageOptimizer');
+          const uploadRes = await subirACloudStorage(finalFotoUrl, {
+            tipo: 'incidente',
+            patente: targetVeh.patente || 'vehiculo'
+          });
+          if (uploadRes && uploadRes.url) {
+            finalFotoUrl = uploadRes.url;
+          }
+        } catch (e) {
+          console.warn("No se pudo subir foto de incidente a storage:", e);
+        }
+      }
+
       const now = new Date();
       const incidentPayload = {
         vehiculoId: targetVeh.id,
@@ -1175,7 +1157,7 @@ const ScanQR = () => {
         tipoEvento: incidentTipo,
         gravedad: incidentGravedad,
         descripcion: incidentDescripcion.trim(),
-        foto: incidentFoto || null,
+        foto: finalFotoUrl,
         fechaHoraStr: now.toLocaleString('es-CL', { 
           day: '2-digit', 
           month: '2-digit', 

@@ -243,13 +243,17 @@ const Dashboard = () => {
   useEffect(() => {
     loadDashboardData(false);
 
-    // Actualización periódica en segundo plano cada 10 segundos
+    // Actualización periódica en segundo plano protegida (solo si la pestaña está activa)
     const pollInterval = setInterval(() => {
-      loadDashboardData(true);
-    }, 10000);
+      if (document.visibilityState === 'visible') {
+        loadDashboardData(true);
+      }
+    }, 25000);
 
     const handleFocus = () => {
-      loadDashboardData(true);
+      if (document.visibilityState === 'visible') {
+        loadDashboardData(true);
+      }
     };
     window.addEventListener('focus', handleFocus);
     document.addEventListener('visibilitychange', handleFocus);

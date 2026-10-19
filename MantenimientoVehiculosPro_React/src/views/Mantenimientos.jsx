@@ -206,35 +206,53 @@ const Mantenimientos = () => {
   };
 
   // Convertir imagen o PDF a Base64 con renderizado
-  const handleImageChange = (e) => {
+  const handleImageChange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
-    if (file.size > 8 * 1024 * 1024) { // Límite de 8MB
-      setToast({ message: 'El archivo no debe superar los 8MB de tamaño.', type: 'error' });
+    if (file.size > 15 * 1024 * 1024) { // Límite de 15MB
+      setToast({ message: 'El archivo no debe superar los 15MB de tamaño.', type: 'error' });
       e.target.value = null;
       return;
     }
 
-    const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
-    const reader = new FileReader();
-    reader.onloadend = async () => {
-      const dataUrl = reader.result;
-      if (isPdf) {
-        try {
-          const { extraerTextoYRenderDePdf } = await import('../services/documentParser');
-          const pdfRes = await extraerTextoYRenderDePdf(dataUrl);
-          if (pdfRes.renderedImage) {
-            setFormFacturaImagen(pdfRes.renderedImage);
-            return;
-          }
-        } catch (err) {
-          console.warn("Error procesando PDF de factura:", err);
-        }
+    setToast({ message: '🧾 Optimizando factura/comprobante y subiendo a Cloud Storage...', type: 'info' });
+
+    try {
+      const { subirACloudStorage } = await import('../utils/imageOptimizer');
+      const uploadRes = await subirACloudStorage(file, {
+        tipo: 'factura',
+        patente: selectedVehicle?.patente || 'mantenimiento'
+      });
+
+      if (uploadRes && uploadRes.url) {
+        setFormFacturaImagen(uploadRes.url);
+        setToast({ message: '🧾 Comprobante guardado en Cloud Storage.', type: 'success' });
+      } else {
+        throw new Error('No se obtuvo URL de almacenamiento');
       }
-      setFormFacturaImagen(dataUrl);
-    };
-    reader.readAsDataURL(file);
+    } catch (err) {
+      console.error("Error al subir factura a Cloud Storage:", err);
+      // Fallback local
+      const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const dataUrl = reader.result;
+        if (isPdf) {
+          try {
+            const { extraerTextoYRenderDePdf } = await import('../services/documentParser');
+            const pdfRes = await extraerTextoYRenderDePdf(dataUrl);
+            if (pdfRes.renderedImage) {
+              setFormFacturaImagen(pdfRes.renderedImage);
+              return;
+            }
+          } catch (pdfErr) {}
+        }
+        setFormFacturaImagen(dataUrl);
+      };
+      reader.readAsDataURL(file);
+      setToast({ message: 'Comprobante cargado en modo local.', type: 'warning' });
+    }
   };
 
   // Abrir Modal de Creación
@@ -296,6 +314,22 @@ const Mantenimientos = () => {
       return;
     }
 
+    let finalFacturaUrl = formFacturaImagen || null;
+    if (finalFacturaUrl && !finalFacturaUrl.startsWith('http://') && !finalFacturaUrl.startsWith('https://')) {
+      try {
+        const { subirACloudStorage } = await import('../utils/imageOptimizer');
+        const uploadRes = await subirACloudStorage(finalFacturaUrl, {
+          tipo: 'factura',
+          patente: selectedVehicle?.patente || 'mantenimiento'
+        });
+        if (uploadRes && uploadRes.url) {
+          finalFacturaUrl = uploadRes.url;
+        }
+      } catch (e) {
+        console.warn("No se pudo subir factura a Cloud Storage:", e);
+      }
+    }
+
     const payload = {
       tipo: formTipo,
       descripcion: formDescripcion,
@@ -303,7 +337,7 @@ const Mantenimientos = () => {
       kilometraje: parseInt(formKilometraje),
       estado: formEstado,
       costo: formCosto !== '' ? parseFloat(formCosto) : null,
-      facturaImagen: formFacturaImagen || null,
+      facturaImagen: finalFacturaUrl,
       vehiculoId: selectedVehicle.id
     };
 
