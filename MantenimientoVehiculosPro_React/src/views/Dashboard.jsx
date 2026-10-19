@@ -20,8 +20,17 @@ import {
   Check,
   CheckCircle2,
   X,
-  Phone
+  Phone,
+  ZoomIn,
+  ZoomOut,
+  RotateCcw,
+  RotateCw,
+  Maximize2,
+  Download
 } from 'lucide-react';
+import { Capacitor } from '@capacitor/core';
+import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
 import { Link } from 'react-router-dom';
 import Toast from '../components/Toast';
 import { evaluarDocumento, cleanDocVal } from '../components/DocumentosVehiculoSection';
@@ -43,6 +52,10 @@ const Dashboard = () => {
   const [incidentAlerts, setIncidentAlerts] = useState([]);
   const [activeAlertTab, setActiveAlertTab] = useState('INCIDENTES'); // 'INCIDENTES' | 'DOCUMENTOS' | 'MANTENIMIENTO'
   const [selectedIncidentModal, setSelectedIncidentModal] = useState(null);
+  const [isPhotoExpanded, setIsPhotoExpanded] = useState(false);
+  const [photoZoom, setPhotoZoom] = useState(1);
+  const [photoRotation, setPhotoRotation] = useState(0);
+  const [downloadingPhoto, setDownloadingPhoto] = useState(false);
   const [toast, setToast] = useState(null);
 
   const isAdmin = user?.role === 'ADMIN';
@@ -284,10 +297,109 @@ const Dashboard = () => {
     }));
 
     if (selectedIncidentModal?.id === incidentId) {
-      setSelectedIncidentModal(null);
+      closeIncidentModal();
     }
 
     setToast({ message: 'Incidente marcado como atendido y registrado en el servidor.', type: 'success' });
+  };
+
+  const closeIncidentModal = () => {
+    setSelectedIncidentModal(null);
+    setIsPhotoExpanded(false);
+    setPhotoZoom(1);
+    setPhotoRotation(0);
+  };
+
+  const closePhotoLightbox = () => {
+    setIsPhotoExpanded(false);
+    setPhotoZoom(1);
+    setPhotoRotation(0);
+  };
+
+  // Tecla Escape para cerrar modales y lightbox fluidamente
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        if (isPhotoExpanded) {
+          closePhotoLightbox();
+        } else if (selectedIncidentModal) {
+          closeIncidentModal();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isPhotoExpanded, selectedIncidentModal]);
+
+  // Descargar evidencia fotográfica en alta resolución (Android nativo y Web)
+  const handleDownloadPhoto = async () => {
+    if (!selectedIncidentModal?.foto) return;
+    setDownloadingPhoto(true);
+
+    const safePatente = selectedIncidentModal.patente || 'Vehiculo';
+    const safeTipo = (selectedIncidentModal.tipoEvento || 'Siniestro').replace(/\s+/g, '_');
+    const nombreArchivo = `Evidencia_${safeTipo}_${safePatente}_${Date.now()}.png`.replace(/[^a-zA-Z0-9_.-]/g, '_');
+
+    try {
+      if (Capacitor.isNativePlatform()) {
+        let base64Clean = selectedIncidentModal.foto;
+        if (base64Clean.includes(',')) {
+          base64Clean = base64Clean.split(',')[1];
+        }
+
+        const saved = await Filesystem.writeFile({
+          path: nombreArchivo,
+          data: base64Clean,
+          directory: Directory.Cache
+        });
+
+        await Share.share({
+          title: nombreArchivo,
+          text: `Evidencia fotográfica ${selectedIncidentModal.tipoEvento} - Móvil ${selectedIncidentModal.patente}`,
+          files: [saved.uri],
+          dialogTitle: 'Descargar o Guardar Evidencia'
+        });
+
+        setToast({ message: 'Selecciona "Guardar" o comparte la fotografía.', type: 'info' });
+        setDownloadingPhoto(false);
+        return;
+      }
+
+      // Web
+      let blob;
+      if (selectedIncidentModal.foto.startsWith('data:')) {
+        const parts = selectedIncidentModal.foto.split(',');
+        const mimeMatch = parts[0].match(/:(.*?);/);
+        const mimeType = mimeMatch ? mimeMatch[1] : 'image/png';
+        const b64Data = parts[1] || parts[0];
+        const byteCharacters = atob(b64Data.replace(/\s+/g, ''));
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        blob = new Blob([byteArray], { type: mimeType });
+      } else {
+        const response = await fetch(selectedIncidentModal.foto);
+        blob = await response.blob();
+      }
+
+      const blobUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = nombreArchivo;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(blobUrl);
+
+      setToast({ message: 'Descarga de evidencia iniciada exitosamente.', type: 'success' });
+    } catch (err) {
+      console.error('Error al descargar evidencia:', err);
+      setToast({ message: 'No se pudo descargar la evidencia fotográfica.', type: 'error' });
+    } finally {
+      setDownloadingPhoto(false);
+    }
   };
 
   const activeIncidents = incidentAlerts.filter(i => !i.resuelto);
@@ -916,9 +1028,9 @@ const Dashboard = () => {
         </>
       )}
 
-      {/* Modal / Lightbox Detalle de Incidente & Fotografía en Gran Tamaño */}
+      {/* Modal Detalle de Incidente & Fotografía */}
       {selectedIncidentModal && (
-        <div className="modal-overlay" onClick={() => setSelectedIncidentModal(null)} style={{ zIndex: 1200 }}>
+        <div className="modal-overlay" onClick={closeIncidentModal} style={{ zIndex: 1200 }}>
           <div className="modal-content glass-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '580px', width: '92%', maxHeight: '90vh', overflowY: 'auto', animation: 'scaleUp 0.25s ease-out' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -929,21 +1041,124 @@ const Dashboard = () => {
               </div>
               <button 
                 type="button" 
-                onClick={() => setSelectedIncidentModal(null)}
+                onClick={closeIncidentModal}
                 style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.1rem' }}
               >
                 ✕
               </button>
             </div>
 
-            {/* Foto del evento */}
+            {/* Foto del evento con soporte de ampliación */}
             {selectedIncidentModal.foto && (
-              <div style={{ borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--border-color)', marginBottom: '1rem', maxHeight: '320px', backgroundColor: '#000', display: 'flex', justifyContent: 'center' }}>
-                <img 
-                  src={selectedIncidentModal.foto} 
-                  alt="Evidencia fotográfica" 
-                  style={{ maxWidth: '100%', maxHeight: '320px', objectFit: 'contain' }} 
-                />
+              <div 
+                style={{ 
+                  borderRadius: 'var(--radius-md)', 
+                  overflow: 'hidden', 
+                  border: '1px solid var(--border-color)', 
+                  marginBottom: '1rem', 
+                  backgroundColor: '#0a0f1d', 
+                  display: 'flex', 
+                  flexDirection: 'column'
+                }}
+              >
+                <div 
+                  onClick={() => {
+                    setIsPhotoExpanded(true);
+                    setPhotoZoom(1.25);
+                  }}
+                  title="Haz clic para ampliar la fotografía a pantalla completa con zoom interactivo"
+                  style={{
+                    position: 'relative',
+                    cursor: 'zoom-in',
+                    maxHeight: '340px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    overflow: 'hidden',
+                    backgroundColor: '#050811'
+                  }}
+                >
+                  <img 
+                    src={selectedIncidentModal.foto} 
+                    alt="Evidencia fotográfica" 
+                    style={{ 
+                      maxWidth: '100%', 
+                      maxHeight: '340px', 
+                      objectFit: 'contain',
+                      transition: 'transform 0.25s ease'
+                    }} 
+                    onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.03)'}
+                    onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                  />
+
+                  {/* Badge flotante de indicación */}
+                  <div 
+                    style={{
+                      position: 'absolute',
+                      bottom: '12px',
+                      right: '12px',
+                      background: 'rgba(15, 23, 42, 0.88)',
+                      backdropFilter: 'blur(8px)',
+                      color: '#ffffff',
+                      border: '1px solid rgba(255, 255, 255, 0.25)',
+                      padding: '0.4rem 0.85rem',
+                      borderRadius: '20px',
+                      fontSize: '0.75rem',
+                      fontWeight: 700,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.45rem',
+                      boxShadow: '0 4px 15px rgba(0,0,0,0.6)',
+                      pointerEvents: 'none'
+                    }}
+                  >
+                    <Maximize2 size={13} color="var(--primary)" />
+                    <span>Clic para Agrandar Fotografía</span>
+                  </div>
+                </div>
+
+                {/* Barra de acción rápida de imagen */}
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  padding: '0.45rem 0.85rem',
+                  backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                  borderTop: '1px solid rgba(255,255,255,0.08)',
+                  fontSize: '0.75rem',
+                  color: 'var(--text-secondary)',
+                  flexWrap: 'wrap',
+                  gap: '0.4rem'
+                }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <Camera size={13} color="var(--primary)" />
+                    Fotografía original capturada por el conductor
+                  </span>
+                  <div style={{ display: 'flex', gap: '0.4rem' }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsPhotoExpanded(true);
+                        setPhotoZoom(1.25);
+                      }}
+                      className="btn btn-secondary btn-sm"
+                      style={{ padding: '0.25rem 0.65rem', fontSize: '0.72rem', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}
+                    >
+                      <Maximize2 size={12} />
+                      <span>Pantalla Completa</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDownloadPhoto}
+                      disabled={downloadingPhoto}
+                      className="btn btn-secondary btn-sm"
+                      style={{ padding: '0.25rem 0.65rem', fontSize: '0.72rem', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}
+                    >
+                      <Download size={12} />
+                      <span>{downloadingPhoto ? '...' : 'Descargar'}</span>
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -968,7 +1183,7 @@ const Dashboard = () => {
               <button 
                 type="button" 
                 className="btn btn-secondary" 
-                onClick={() => setSelectedIncidentModal(null)}
+                onClick={closeIncidentModal}
               >
                 Cerrar
               </button>
@@ -982,6 +1197,206 @@ const Dashboard = () => {
                 <span>Marcar como Atendido en Taller</span>
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* VISOR FULLSCREEN INTERACTIVO PARA AGRANDAR LA EVIDENCIA CON ZOOM */}
+      {isPhotoExpanded && selectedIncidentModal?.foto && (
+        <div 
+          onClick={closePhotoLightbox}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 1400,
+            backgroundColor: 'rgba(2, 6, 23, 0.97)',
+            backdropFilter: 'blur(12px)',
+            display: 'flex',
+            flexDirection: 'column',
+            animation: 'fadeIn 0.2s ease-out'
+          }}
+        >
+          {/* Barra Superior con Controles */}
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              padding: '0.75rem 1.25rem',
+              backgroundColor: 'rgba(15, 23, 42, 0.96)',
+              borderBottom: '1px solid rgba(255,255,255,0.1)',
+              color: '#ffffff',
+              flexWrap: 'wrap',
+              gap: '0.5rem'
+            }}
+          >
+            <div>
+              <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span>🔍 Evidencia Fotográfica en Detalle</span>
+                <span className="badge badge-danger" style={{ fontSize: '0.65rem' }}>
+                  {selectedIncidentModal.gravedad}
+                </span>
+              </div>
+              <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
+                🚗 <strong>{selectedIncidentModal.vehiculoNombre}</strong> · Patente: <strong style={{ color: 'var(--primary)' }}>{selectedIncidentModal.patente}</strong> • {selectedIncidentModal.tipoEvento}
+              </div>
+            </div>
+
+            {/* Controles de Zoom, Giro y Descarga */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <div style={{ 
+                display: 'inline-flex', 
+                alignItems: 'center', 
+                backgroundColor: 'rgba(255,255,255,0.08)', 
+                borderRadius: '8px', 
+                padding: '2px', 
+                border: '1px solid rgba(255,255,255,0.15)' 
+              }}>
+                <button
+                  type="button"
+                  title="Alejar fotografía"
+                  onClick={() => setPhotoZoom(z => Math.max(z - 0.25, 0.5))}
+                  style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', padding: '6px 8px', display: 'flex', alignItems: 'center' }}
+                >
+                  <ZoomOut size={16} />
+                </button>
+
+                <span style={{ fontSize: '0.75rem', fontWeight: 700, minWidth: '48px', textAlign: 'center', fontFamily: 'monospace' }}>
+                  {Math.round(photoZoom * 100)}%
+                </span>
+
+                <button
+                  type="button"
+                  title="Acercar fotografía (zoom en detalle)"
+                  onClick={() => setPhotoZoom(z => Math.min(z + 0.25, 4.0))}
+                  style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', padding: '6px 8px', display: 'flex', alignItems: 'center' }}
+                >
+                  <ZoomIn size={16} />
+                </button>
+
+                <button
+                  type="button"
+                  title="Restablecer a tamaño normal (100%)"
+                  onClick={() => { setPhotoZoom(1); setPhotoRotation(0); }}
+                  style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '6px 8px', display: 'flex', alignItems: 'center', borderLeft: '1px solid rgba(255,255,255,0.1)' }}
+                >
+                  <RotateCcw size={14} />
+                </button>
+
+                <button
+                  type="button"
+                  title="Girar imagen 90°"
+                  onClick={() => setPhotoRotation(r => (r + 90) % 360)}
+                  style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '6px 8px', display: 'flex', alignItems: 'center' }}
+                >
+                  <RotateCw size={14} />
+                </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleDownloadPhoto}
+                disabled={downloadingPhoto}
+                className="btn btn-secondary btn-sm"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8rem' }}
+              >
+                <Download size={14} />
+                <span className="hide-mobile">{downloadingPhoto ? 'Descargando...' : 'Descargar'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={closePhotoLightbox}
+                title="Cerrar visor ampliado"
+                style={{
+                  background: 'rgba(239, 68, 68, 0.2)',
+                  border: '1px solid rgba(239, 68, 68, 0.4)',
+                  color: '#f87171',
+                  borderRadius: '50%',
+                  width: '34px',
+                  height: '34px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  marginLeft: '0.5rem'
+                }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+          </div>
+
+          {/* Área Central Interactiva con soporte de rueda de ratón */}
+          <div 
+            onWheel={(e) => {
+              e.preventDefault();
+              if (e.deltaY < 0) {
+                setPhotoZoom(z => Math.min(z + 0.15, 4.0));
+              } else {
+                setPhotoZoom(z => Math.max(z - 0.15, 0.5));
+              }
+            }}
+            style={{
+              flex: 1,
+              overflow: 'auto',
+              display: 'flex',
+              alignItems: photoZoom > 1 ? 'flex-start' : 'center',
+              justifyContent: photoZoom > 1 ? 'flex-start' : 'center',
+              padding: '1.5rem',
+              cursor: photoZoom > 1 ? 'grab' : 'zoom-in',
+              WebkitOverflowScrolling: 'touch'
+            }}
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                closePhotoLightbox();
+              }
+            }}
+          >
+            <div style={{ margin: 'auto', display: 'inline-block', position: 'relative' }}>
+              <img 
+                src={selectedIncidentModal.foto} 
+                alt="Evidencia ampliada" 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setPhotoZoom(z => z > 1.2 ? 1 : 2.5);
+                }}
+                style={{
+                  width: `${Math.round(100 * photoZoom)}%`,
+                  maxWidth: photoZoom > 1 ? 'none' : '90vw',
+                  maxHeight: photoZoom > 1 ? 'none' : '82vh',
+                  objectFit: 'contain',
+                  borderRadius: '8px',
+                  boxShadow: '0 25px 70px rgba(0,0,0,0.95)',
+                  transform: `rotate(${photoRotation}deg)`,
+                  transformOrigin: 'center center',
+                  transition: 'transform 0.15s ease-out',
+                  userSelect: 'none'
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Barra inferior con instrucciones */}
+          <div style={{
+            padding: '0.6rem 1rem',
+            backgroundColor: 'rgba(15, 23, 42, 0.95)',
+            borderTop: '1px solid rgba(255,255,255,0.1)',
+            textAlign: 'center',
+            fontSize: '0.75rem',
+            color: '#94a3b8',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            gap: '1rem',
+            flexWrap: 'wrap'
+          }}>
+            <span>💡 <strong>Tip:</strong> Puedes usar la rueda del ratón o los botones para hacer zoom hasta un 400%.</span>
+            <span>•</span>
+            <span>Arrastra con el mouse para examinar zonas específicas.</span>
+            <span>•</span>
+            <span>Doble clic en la foto para alternar zoom rápido (1x / 2.5x).</span>
           </div>
         </div>
       )}
