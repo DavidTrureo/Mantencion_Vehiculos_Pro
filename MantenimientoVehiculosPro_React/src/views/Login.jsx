@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Lock, User, Eye, EyeOff, Server, Settings } from 'lucide-react';
+import { Lock, User, Eye, EyeOff } from 'lucide-react';
 import logoImg from '../assets/logo.png';
 import Toast from '../components/Toast';
-import { getApiBaseUrl, setCustomApiUrl, CLOUD_RUN_API_URL } from '../services/api';
 
 const Login = () => {
   const [username, setUsername] = useState('');
@@ -194,82 +193,6 @@ const Login = () => {
           </button>
         </form>
 
-        {/* Demo credentials info */}
-        <div 
-          style={{ 
-            marginTop: '2rem', 
-            padding: '0.85rem', 
-            borderRadius: 'var(--radius-sm)', 
-            backgroundColor: 'rgba(255,255,255,0.02)', 
-            border: '1px solid rgba(255,255,255,0.05)',
-            fontSize: '0.75rem',
-            color: 'var(--text-muted)'
-          }}
-        >
-          <div style={{ fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.25rem' }}>
-            Credenciales de Demostración:
-          </div>
-          <div>• Admin: <strong>admin</strong> / <strong>admin123</strong></div>
-          <div>• Conductor: <strong>conductor1</strong> / <strong>conductor123</strong></div>
-        </div>
-
-        {/* Configuración de Servidor Backend para Móvil */}
-        <div style={{ marginTop: '1rem', textAlign: 'center' }}>
-          {!showServerConfig ? (
-            <button
-              type="button"
-              onClick={() => setShowServerConfig(true)}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: 'var(--text-muted)',
-                fontSize: '0.72rem',
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.35rem',
-                padding: '0.2rem 0.5rem',
-                borderRadius: 'var(--radius-sm)',
-                transition: 'color 0.2s'
-              }}
-            >
-              <Server size={12} color="#60a5fa" />
-              <span>Servidor: <strong style={{ color: '#93c5fd' }}>{getApiBaseUrl() || 'Automático'}</strong></span>
-              <Settings size={11} />
-            </button>
-          ) : (
-            <form onSubmit={handleSaveServerUrl} style={{ marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.4rem', backgroundColor: 'rgba(0,0,0,0.3)', padding: '0.75rem', borderRadius: 'var(--radius-sm)' }}>
-              <label style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', textAlign: 'left' }}>
-                IP o Dominio del Backend Spring Boot:
-              </label>
-              <input
-                type="text"
-                className="form-input"
-                value={serverUrlInput}
-                onChange={(e) => setServerUrlInput(e.target.value)}
-                placeholder="https://vehiculospro-api-88453754134.us-east4.run.app"
-                style={{ fontSize: '0.75rem', padding: '0.4rem 0.6rem', margin: 0 }}
-              />
-              <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end', marginTop: '0.2rem' }}>
-                <button
-                  type="button"
-                  onClick={() => setShowServerConfig(false)}
-                  className="btn btn-secondary"
-                  style={{ fontSize: '0.7rem', padding: '0.3rem 0.6rem' }}
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="btn btn-primary"
-                  style={{ fontSize: '0.7rem', padding: '0.3rem 0.6rem' }}
-                >
-                  Guardar IP
-                </button>
-              </div>
-            </form>
-          )}
-        </div>
       </div>
 
       {/* Toast Messages */}
