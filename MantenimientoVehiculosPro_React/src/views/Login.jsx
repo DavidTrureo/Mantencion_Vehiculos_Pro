@@ -46,7 +46,7 @@ const Login = () => {
       }
 
     } else {
-      setToast({ message: result.message, type: 'error' });
+      setToast({ message: result.message || 'Usuario o contraseña incorrectos. Por favor, verifica tus datos e intenta nuevamente.', type: 'error' });
     }
   };
 
@@ -94,9 +94,14 @@ const Login = () => {
           <h1 style={{ fontSize: '1.75rem', fontWeight: 800, marginBottom: '0.25rem' }}>
             Vehículos<span style={{ color: 'var(--primary)' }}>Pro</span>
           </h1>
-          <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-            Inicie sesión para gestionar la flota
-          </p>
+          <div style={{ marginTop: '0.75rem' }}>
+            <h2 style={{ fontSize: '1.15rem', fontWeight: 700, color: '#ffffff', marginBottom: '0.25rem' }}>
+              Iniciar Sesión
+            </h2>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+              Ingresa tus credenciales para gestionar la flota
+            </p>
+          </div>
         </div>
 
         {/* Login Form */}
@@ -119,6 +124,9 @@ const Login = () => {
                 type="text" 
                 className="form-input" 
                 placeholder="Ingrese su usuario o email"
+                autoComplete="username"
+                autoCapitalize="none"
+                required
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 style={{ paddingLeft: '2.75rem' }}
@@ -145,6 +153,8 @@ const Login = () => {
                 type={showPassword ? 'text' : 'password'} 
                 className="form-input" 
                 placeholder="••••••••"
+                autoComplete="current-password"
+                required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 style={{ paddingLeft: '2.75rem', paddingRight: '2.75rem' }}
@@ -189,7 +199,7 @@ const Login = () => {
                   animation: 'spin 0.8s linear infinite'
                 }}
               />
-            ) : 'Ingresar'}
+            ) : 'Iniciar Sesión'}
           </button>
         </form>
 
