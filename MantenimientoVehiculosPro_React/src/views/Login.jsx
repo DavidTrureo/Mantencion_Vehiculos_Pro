@@ -69,23 +69,21 @@ const Login = () => {
         }}
       >
         {/* Brand Header */}
-        <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
+        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
           <img 
             src={logoImg} 
             alt="VehiculosPro Logo" 
             style={{
-              width: '80px',
-              height: '80px',
-              borderRadius: '16px',
+              width: '140px',
+              height: '140px',
+              borderRadius: '24px',
               marginBottom: '1rem',
-              boxShadow: '0 8px 24px rgba(59, 130, 246, 0.25)'
+              boxShadow: '0 12px 32px rgba(59, 130, 246, 0.28)',
+              objectFit: 'contain'
             }}
           />
-          <h1 style={{ fontSize: '1.75rem', fontWeight: 800, marginBottom: '0.25rem' }}>
-            Vehículos<span style={{ color: 'var(--primary)' }}>Pro</span>
-          </h1>
-          <div style={{ marginTop: '0.75rem' }}>
-            <h2 style={{ fontSize: '1.15rem', fontWeight: 700, color: '#ffffff', marginBottom: '0.25rem' }}>
+          <div>
+            <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#ffffff', marginBottom: '0.25rem' }}>
               Iniciar Sesión
             </h2>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
