@@ -361,6 +361,15 @@ export const api = {
     return handleResponse(res);
   },
 
+  // Auditoría y Alertas Automáticas de Vencimientos Legales (Cron / Manual)
+  ejecutarAuditoriaVencimientos: async () => {
+    const res = await fetch(`${BASE_URL}/alertas/vencimientos/ejecutar`, {
+      method: 'POST',
+      headers: getHeaders(),
+    });
+    return handleResponse(res);
+  },
+
   // Telemetría GPS en Vivo
   enviarTelemetriaGps: async (data) => {
     try {
@@ -535,7 +544,29 @@ export const api = {
   },
 
   // Subida de evidencias y documentos a almacenamiento en la nube (Firebase Storage)
-  subirArchivo: async (fileOrBlob, filename = 'evidencia.webp') => {
+    // Descarga directa de archivos y reportes Excel/CSV
+  downloadFile: async (endpoint, defaultFilename = "reporte.csv") => {
+    const token = localStorage.getItem("token");
+    const headers = {};
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+    const res = await fetch(`${BASE_URL}${endpoint}`, { headers });
+    if (!res.ok) {
+      throw new Error(`Error ${res.status}: Fallo al exportar archivo`);
+    }
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = defaultFilename;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  },
+
+  subirArchivo: async (fileOrBlob, filename = evidencia.webp) => {
     const formData = new FormData();
     if (fileOrBlob instanceof Blob && !(fileOrBlob instanceof File)) {
       formData.append('file', fileOrBlob, filename);

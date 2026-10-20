@@ -75,4 +75,9 @@ public class MantenimientoDTO {
 
     public Double getLongitud() { return longitud; }
     public void setLongitud(Double longitud) { this.longitud = longitud; }
+
+    private String clasificacion; // 'PREVENTIVO' o 'CORRECTIVO'
+
+    public String getClasificacion() { return clasificacion; }
+    public void setClasificacion(String clasificacion) { this.clasificacion = clasificacion; }
 }

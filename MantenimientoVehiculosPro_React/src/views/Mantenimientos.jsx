@@ -111,6 +111,7 @@ const Mantenimientos = () => {
   const [formEstado, setFormEstado] = useState('REALIZADO');
   const [formCosto, setFormCosto] = useState('');
   const [formFacturaImagen, setFormFacturaImagen] = useState('');
+  const [formClasificacion, setFormClasificacion] = useState('PREVENTIVO');
   
   // Toast
   const [toast, setToast] = useState(null);
@@ -266,6 +267,7 @@ const Mantenimientos = () => {
     setFormEstado('REALIZADO');
     setFormCosto('');
     setFormFacturaImagen('');
+    setFormClasificacion('PREVENTIVO');
     setShowModal(true);
   };
 
@@ -280,6 +282,9 @@ const Mantenimientos = () => {
     setFormEstado(m.estado);
     setFormCosto(m.costo || '');
     setFormFacturaImagen(m.facturaImagen || '');
+    const isCorr = m.clasificacion === 'CORRECTIVO' || 
+                   (!m.clasificacion && (m.tipo?.toLowerCase().includes('choque') || m.tipo?.toLowerCase().includes('falla') || m.tipo?.toLowerCase().includes('pana')));
+    setFormClasificacion(isCorr ? 'CORRECTIVO' : 'PREVENTIVO');
     setShowModal(true);
   };
 
@@ -337,6 +342,7 @@ const Mantenimientos = () => {
       kilometraje: parseInt(formKilometraje),
       estado: formEstado,
       costo: formCosto !== '' ? parseFloat(formCosto) : null,
+      clasificacion: formClasificacion,
       facturaImagen: finalFacturaUrl,
       vehiculoId: selectedVehicle.id
     };
@@ -616,6 +622,15 @@ const Mantenimientos = () => {
                                   <span className={`badge ${getBadgeClass(m.estado)}`}>
                                     {m.estado}
                                   </span>
+                                  <span className={`badge ${
+                                    (m.clasificacion === 'CORRECTIVO' || (!m.clasificacion && (m.tipo?.toLowerCase().includes('choque') || m.tipo?.toLowerCase().includes('falla') || m.tipo?.toLowerCase().includes('pana'))))
+                                      ? 'badge-danger' 
+                                      : 'badge-success'
+                                  }`} style={{ fontSize: '0.75rem', fontWeight: 600 }}>
+                                    {(m.clasificacion === 'CORRECTIVO' || (!m.clasificacion && (m.tipo?.toLowerCase().includes('choque') || m.tipo?.toLowerCase().includes('falla') || m.tipo?.toLowerCase().includes('pana'))))
+                                      ? '🔴 Correctivo' 
+                                      : '🟢 Preventivo'}
+                                  </span>
                                   <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                                     <Calendar size={14} /> {m.fecha}
                                   </span>
@@ -885,6 +900,56 @@ const Mantenimientos = () => {
                     required 
                   />
                 )}
+              </div>
+
+              {/* Clasificación: Preventivo vs Correctivo */}
+              <div className="form-group">
+                <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span>Clasificación del Gasto</span>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Control y Auditoría</span>
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                  <button
+                    type="button"
+                    onClick={() => setFormClasificacion('PREVENTIVO')}
+                    style={{
+                      padding: '0.65rem',
+                      borderRadius: '8px',
+                      border: formClasificacion === 'PREVENTIVO' ? '2px solid #10b981' : '1px solid var(--border-color)',
+                      background: formClasificacion === 'PREVENTIVO' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255,255,255,0.03)',
+                      color: formClasificacion === 'PREVENTIVO' ? '#34d399' : 'var(--text-secondary)',
+                      fontWeight: 600,
+                      fontSize: '0.85rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.4rem',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <span>🟢</span> Preventivo (Programada)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormClasificacion('CORRECTIVO')}
+                    style={{
+                      padding: '0.65rem',
+                      borderRadius: '8px',
+                      border: formClasificacion === 'CORRECTIVO' ? '2px solid #ef4444' : '1px solid var(--border-color)',
+                      background: formClasificacion === 'CORRECTIVO' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(255,255,255,0.03)',
+                      color: formClasificacion === 'CORRECTIVO' ? '#f87171' : 'var(--text-secondary)',
+                      fontWeight: 600,
+                      fontSize: '0.85rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.4rem',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <span>🔴</span> Correctivo (Falla / Choque)
+                  </button>
+                </div>
               </div>
 
               {/* Descripcion */}

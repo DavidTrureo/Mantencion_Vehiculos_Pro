@@ -96,4 +96,10 @@ public class Mantenimiento {
 
     public Long getMecanicoId() { return mecanicoId; }
     public void setMecanicoId(Long mecanicoId) { this.mecanicoId = mecanicoId; }
+
+    @Column(name = "clasificacion", length = 30)
+    private String clasificacion = "PREVENTIVO"; // PREVENTIVO o CORRECTIVO
+
+    public String getClasificacion() { return clasificacion; }
+    public void setClasificacion(String clasificacion) { this.clasificacion = clasificacion; }
 }

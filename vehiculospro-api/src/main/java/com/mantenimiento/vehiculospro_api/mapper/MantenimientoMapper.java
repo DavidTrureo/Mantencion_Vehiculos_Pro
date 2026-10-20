@@ -26,6 +26,11 @@ public class MantenimientoMapper {
         m.setAudioUrl(dto.getAudioUrl());
         m.setLatitud(dto.getLatitud());
         m.setLongitud(dto.getLongitud());
+        if (dto.getClasificacion() != null && !dto.getClasificacion().isBlank()) {
+            m.setClasificacion(dto.getClasificacion().toUpperCase().trim());
+        } else {
+            m.setClasificacion(determinarClasificacion(dto.getTipo(), dto.getDescripcion()));
+        }
 
         // Validar y convertir fecha
         if (dto.getFecha() != null && !dto.getFecha().isBlank()) {
@@ -54,6 +59,11 @@ public class MantenimientoMapper {
         dto.setAudioUrl(m.getAudioUrl());
         dto.setLatitud(m.getLatitud());
         dto.setLongitud(m.getLongitud());
+        if (m.getClasificacion() != null && !m.getClasificacion().isBlank()) {
+            dto.setClasificacion(m.getClasificacion().toUpperCase().trim());
+        } else {
+            dto.setClasificacion(determinarClasificacion(m.getTipo(), m.getDescripcion()));
+        }
 
         if (m.getFecha() != null) {
             dto.setFecha(m.getFecha().format(FORMATO));
@@ -61,4 +71,15 @@ public class MantenimientoMapper {
 
         return dto;
     }
+    public static String determinarClasificacion(String tipo, String descripcion) {
+        String texto = ((tipo != null ? tipo : "") + " " + (descripcion != null ? descripcion : "")).toLowerCase();
+        if (texto.contains("choque") || texto.contains("falla") || texto.contains("rotura") ||
+            texto.contains("reparac") || texto.contains("imprevist") || texto.contains("siniestro") ||
+            texto.contains("pana") || texto.contains("accidente") || texto.contains("emergenc") ||
+            texto.contains("averia") || texto.contains("correctiv")) {
+            return "CORRECTIVO";
+        }
+        return "PREVENTIVO";
+    }
+
 }

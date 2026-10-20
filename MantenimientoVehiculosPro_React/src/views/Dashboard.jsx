@@ -7,7 +7,6 @@ import {
   DollarSign, 
   AlertTriangle, 
   ArrowRight,
-  TrendingUp,
   UserCheck,
   Compass,
   Sparkles,
@@ -34,6 +33,8 @@ import { Share } from '@capacitor/share';
 import { Link } from 'react-router-dom';
 import Toast from '../components/Toast';
 import { evaluarDocumento, cleanDocVal } from '../components/DocumentosVehiculoSection';
+import CostosPreventivoCorrectivoChart from '../components/CostosPreventivoCorrectivoChart';
+import { Send } from 'lucide-react';
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -57,8 +58,27 @@ const Dashboard = () => {
   const [photoRotation, setPhotoRotation] = useState(0);
   const [downloadingPhoto, setDownloadingPhoto] = useState(false);
   const [toast, setToast] = useState(null);
+  const [auditingDocs, setAuditingDocs] = useState(false);
 
   const isAdmin = user?.role === 'ADMIN';
+
+  // Ejecución manual de la auditoría y despacho de alertas por correo / push
+  const handleEjecutarAuditoriaDocs = async () => {
+    setAuditingDocs(true);
+    try {
+      const res = await api.ejecutarAuditoriaVencimientos();
+      setToast({
+        message: `Auditoría ejecutada: ${res.totalAlertas} vencimientos detectados. Se despacharon ${res.emailsEnviados} correo(s) y ${res.pushEnviados} alerta(s) push.`,
+        type: 'success'
+      });
+      loadDashboardData(true);
+    } catch (e) {
+      console.error('Error al ejecutar auditoría de vencimientos:', e);
+      setToast({ message: e.message || 'No se pudo despachar la auditoría.', type: 'error' });
+    } finally {
+      setAuditingDocs(false);
+    }
+  };
   const isMecanico = user?.role === 'MECANICO';
 
   // Cargar lista de usuarios si es Admin o Mecánico
@@ -667,53 +687,8 @@ const Dashboard = () => {
             {/* Left Panel: Chart & Vehicle List */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
               
-              {/* Graphic Chart */}
-              <div className="glass-card">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                  <h3 style={{ fontSize: '1.15rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <TrendingUp size={18} color="var(--primary)" />
-                    Inversión en Mantenimiento por Vehículo
-                  </h3>
-                </div>
-
-                {vehicles.length === 0 ? (
-                  <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-                    No hay vehículos registrados para mostrar el gráfico.
-                  </div>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', marginTop: '0.5rem' }}>
-                    {vehicles.map((v) => {
-                      const maxCost = Math.max(...vehicles.map(ve => ve.totalCost), 1);
-                      const percentage = Math.min(100, Math.round((v.totalCost / maxCost) * 100));
-                      
-                      return (
-                        <div key={v.id} style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                          <div style={{ width: '150px', fontSize: '0.875rem', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {v.marca} {v.modelo}
-                          </div>
-                          
-                          {/* Bar */}
-                          <div style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.03)', height: '16px', borderRadius: '4px', overflow: 'hidden', position: 'relative' }}>
-                            <div 
-                              style={{ 
-                                width: `${percentage}%`, 
-                                height: '100%', 
-                                background: 'linear-gradient(90deg, var(--primary), #60a5fa)',
-                                borderRadius: '4px',
-                                transition: 'width 1s cubic-bezier(0.4, 0, 0.2, 1)'
-                              }} 
-                            />
-                          </div>
-                          
-                          <div style={{ width: '90px', textAlign: 'right', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                            {formatCurrency(v.totalCost)}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
+              {/* Gráfico Mensual de Costos: Preventivo vs. Correctivo por Patente */}
+              <CostosPreventivoCorrectivoChart vehicles={vehicles} />
 
               {/* Quick Vehicle List */}
               <div className="glass-card">
@@ -937,7 +912,49 @@ const Dashboard = () => {
 
               {/* TAB 2: Vencimiento de Documentación Legal (PRT, SOAP, Permiso, Padrón) */}
               {activeAlertTab === 'DOCUMENTOS' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', overflowY: 'auto', maxHeight: '430px', paddingRight: '0.25rem' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', overflowY: 'auto', maxHeight: '460px', paddingRight: '0.25rem' }}>
+                  
+                  {/* Banner de Monitoreo Cron y Botón de Disparo Inmediato */}
+                  <div style={{ 
+                    padding: '0.75rem 0.85rem', 
+                    borderRadius: '8px', 
+                    background: 'rgba(59, 130, 246, 0.08)', 
+                    border: '1px solid rgba(59, 130, 246, 0.25)', 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    gap: '0.5rem' 
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+                      <span style={{ fontSize: '0.78rem', color: '#93c5fd', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                        <Clock size={13} /> Monitoreo Cron: Diario 08:00 AM (≤ 15 días)
+                      </span>
+                      {isAdmin && (
+                        <button
+                          type="button"
+                          onClick={handleEjecutarAuditoriaDocs}
+                          disabled={auditingDocs}
+                          className="btn btn-primary btn-sm"
+                          style={{ 
+                            fontSize: '0.72rem', 
+                            padding: '0.3rem 0.65rem', 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            gap: '0.35rem',
+                            background: 'linear-gradient(135deg, #2563eb, #3b82f6)',
+                            border: 'none',
+                            fontWeight: 600,
+                            cursor: auditingDocs ? 'not-allowed' : 'pointer'
+                          }}
+                        >
+                          <Send size={12} />
+                          {auditingDocs ? 'Notificando...' : 'Auditar y Notificar Ahora'}
+                        </button>
+                      )}
+                    </div>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                      El backend audita automáticamente la vigencia del SOAP y Revisión Técnica (PRT) despachando correos HTML y alertas Push a la administración.
+                    </div>
+                  </div>
                   {docAlerts.length === 0 ? (
                     <div style={{ padding: '2rem 1rem', textAlign: 'center' }}>
                       <div style={{ width: '42px', height: '42px', borderRadius: '50%', backgroundColor: 'rgba(16, 185, 129, 0.1)', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 0.75rem auto' }}>
