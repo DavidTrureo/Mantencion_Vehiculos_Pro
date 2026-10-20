@@ -11,18 +11,8 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState(null);
-  const [showServerConfig, setShowServerConfig] = useState(false);
-  const [serverUrlInput, setServerUrlInput] = useState(getApiBaseUrl() || CLOUD_RUN_API_URL);
-
   const { login } = useAuth();
   const navigate = useNavigate();
-
-  const handleSaveServerUrl = (e) => {
-    e.preventDefault();
-    setCustomApiUrl(serverUrlInput);
-    setShowServerConfig(false);
-    setToast({ message: `Servidor configurado: ${serverUrlInput || 'Automático'}`, type: 'success' });
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
