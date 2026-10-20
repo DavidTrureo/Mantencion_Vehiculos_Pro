@@ -99,7 +99,7 @@ const Login = () => {
               Iniciar Sesión
             </h2>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-              Ingresa tus credenciales para gestionar la flota
+              Ingresa tus credenciales para continuar
             </p>
           </div>
         </div>
