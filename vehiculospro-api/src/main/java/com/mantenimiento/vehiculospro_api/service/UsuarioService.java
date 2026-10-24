@@ -198,6 +198,21 @@ public class UsuarioService {
         user.setStatus(1);
     }
 
+    private void validarPasswordSeguro(String password) {
+        if (password == null || password.trim().length() < 8) {
+            throw new BadRequestException("La contraseña debe tener al menos 8 caracteres para cumplir con las políticas de seguridad.");
+        }
+        boolean hasLetter = password.chars().anyMatch(Character::isLetter);
+        boolean hasDigit = password.chars().anyMatch(Character::isDigit);
+        if (!hasLetter || !hasDigit) {
+            throw new BadRequestException("La contraseña debe combinar letras y números para prevenir vulnerabilidades.");
+        }
+        String lower = password.toLowerCase();
+        if (lower.equals("12345678") || lower.equals("password") || lower.equals("admin123") || lower.equals("123456789")) {
+            throw new BadRequestException("La contraseña ingresada es demasiado común. Por favor elija una más robusta.");
+        }
+    }
+
     private void validarCampos(CreateUserRequestDTO request) {
         if (request.getRut() == null || !request.getRut().matches("^[0-9]{7,8}-[0-9Kk]$")) {
             throw new BadRequestException("RUT inválido. Formato: xxxxxxxx-y (sin puntos, con guion)");
@@ -208,6 +223,9 @@ public class UsuarioService {
         if (request.getUsername() == null || request.getUsername().isBlank()) throw new BadRequestException("Username obligatorio");
         if (request.getEmail() == null || request.getEmail().isBlank()) throw new BadRequestException("Email obligatorio");
         if (request.getRole() == null) throw new BadRequestException("Rol obligatorio");
+        if (request.getPassword() != null && !request.getPassword().isBlank()) {
+            validarPasswordSeguro(request.getPassword());
+        }
     }
 
     public UserResponseDTO obtenerPorId(Long id) {
